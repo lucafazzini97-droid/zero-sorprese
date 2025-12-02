@@ -1169,22 +1169,34 @@ const fiscalData = useTaxCalculator(transactions, settings);
                 </main>
 
                 {/* Mobile Bottom Nav */}
-<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-4 z-40 safe-area-bottom shadow-2xl">
+<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around px-2 py-3 z-40 safe-area-bottom shadow-2xl">
+  {navItems.map((item) => {
+    const isActive = activeTab === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => setActiveTab(item.id)}
+        className={`flex-1 flex flex-col items-center gap-1 rounded-2xl px-2 py-1 transition-all ${
+          isActive
+            ? 'bg-slate-100 text-slate-900'
+            : 'text-slate-400'
+        }`}
+      >
+        <item.icon
+          size={22}
+          className={isActive ? 'text-slate-900' : 'text-slate-400'}
+        />
+        <span className="text-[11px] leading-none font-medium">
+          {item.label}
+        </span>
+        {isActive && (
+          <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-900" />
+        )}
+      </button>
+    );
+  })}
+</nav>
 
-                    {navItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => setActiveTab(item.id)}
-                            className={`p-3 rounded-2xl transition-all ${
-                                activeTab === item.id
-                                    ? 'text-white bg-slate-900 shadow-lg shadow-slate-900/20'
-                                    : 'text-slate-400'
-                            }`}
-                        >
-                            <item.icon size={24} />
-                        </button>
-                    ))}
-                </nav>
             </div>
         </div>
     );
@@ -1196,6 +1208,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
