@@ -336,16 +336,15 @@
         const Dashboard = ({ data, settings }) => {
             const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-            const handleDownloadReport = () => {
+                    const handleDownloadReport = () => {
                 setIsGeneratingReport(true);
                 setTimeout(() => {
-                // Sostituito alert() con la chiamata al browser 'confirm' per rimanere compliant
-                if (confirm("Report PDF generato con successo! Vuoi scaricarlo?")) {
-                    console.log("Download avviato.");
-                }
-                setIsGeneratingReport(false);
+                    // Qui in futuro metteremo il vero download del PDF
+                    console.log("Report PDF generato (placeholder).");
+                    setIsGeneratingReport(false);
                 }, 2000);
             };
+
 
             const chartData = [
                 { name: 'Netto', value: data.netIncome, color: '#10B981' }, 
@@ -508,23 +507,21 @@
             const handleImportXML = () => {
                 setIsImporting(true);
                 setTimeout(() => {
-                const newTx = {
-                    id: Date.now(),
-                    type: 'income',
-                    description: 'Fattura XML #0042',
-                    amount: Math.floor(Math.random() * 2000) + 500.55, // Aggiungo decimali per demo
-                    date: new Date().toISOString().split('T')[0],
-                    paid: true,
-                    category: 'Consulenza'
-                };
-                setTransactions(prev => [...prev, newTx]);
-                setIsImporting(false);
-                // Sostituito alert() con la chiamata al browser 'confirm'
-                if (confirm("Fattura XML importata con successo! Vuoi verificare i dati?")) {
-                    console.log("Dati verificati.");
-                }
+                    const newTx = {
+                        id: Date.now(),
+                        type: 'income',
+                        description: 'Fattura XML #0042',
+                        amount: Math.floor(Math.random() * 2000) + 500.55, // Aggiungo decimali per demo
+                        date: new Date().toISOString().split('T')[0],
+                        paid: true,
+                        category: 'Consulenza'
+                    };
+                    setTransactions(prev => [...prev, newTx]);
+                    setIsImporting(false);
+                    // in futuro qui possiamo mostrare un messaggio “carino” nella UI
                 }, 1500);
             };
+
 
             const handleOCRScan = () => {
                 setIsScanning(true);
@@ -558,12 +555,11 @@
                 setFormData({ description: '', amount: '', date: new Date().toISOString().split('T')[0], deductibility: 100, category: 'Generale' });
             };
 
-            // FUNZIONE ELIMINAZIONE CORRETTA
+                  // FUNZIONE ELIMINAZIONE SENZA POPUP
             const deleteTx = (id) => {
-                if (confirm('Sei sicuro di voler eliminare questa voce? L\'operazione è irreversibile.')) {
-                    setTransactions(current => current.filter(t => t.id !== id));
-                }
+                setTransactions(current => current.filter(t => t.id !== id));
             };
+
 
             const filteredTx = transactions.filter(t => t.type === type);
 
@@ -1021,12 +1017,11 @@ const fiscalData = useTaxCalculator(transactions, settings);
         { id: 'settings', label: 'Setup', icon: Icons.Settings },
     ];
 
-    const handleLogout = () => {
-        if (confirm('Vuoi uscire da Zero Sorprese?')) {
-            setCurrentUser(null);
-            setActiveTab('dashboard');
-        }
+      const handleLogout = () => {
+        setCurrentUser(null);
+        setActiveTab('dashboard');
     };
+
 
     // Se non c'è utente loggato → mostra la pagina Auth
     if (!currentUser) {
@@ -1199,6 +1194,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
