@@ -1043,7 +1043,8 @@ const fiscalData = useTaxCalculator(transactions, settings);
 
             <div className="flex h-screen overflow-hidden">
                 {/* Sidebar Desktop */}
-                <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+<aside className="hidden md:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+
                     <div className="p-8 pb-4">
                         <Logo />
                     </div>
@@ -1168,7 +1169,8 @@ const fiscalData = useTaxCalculator(transactions, settings);
                 </main>
 
                 {/* Mobile Bottom Nav */}
-                <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-4 z-40 safe-area-bottom shadow-2xl">
+<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-4 z-40 safe-area-bottom shadow-2xl">
+
                     {navItems.map((item) => (
                         <button
                             key={item.id}
@@ -1194,6 +1196,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
