@@ -800,126 +800,345 @@
                 </div>
             );
         };
+        const Auth = ({ onLogin }) => {
+    const [mode, setMode] = useState('login'); // login | signup
+    const [email, setEmail] = useState('');
+    const [name, setName] = useState('');
 
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
-            const [settings, setSettings] = useState(INITIAL_SETTINGS);
-            const fiscalData = useTaxCalculator(transactions, settings);
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!email) return;
 
-            const navItems = [
-                { id: 'dashboard', label: 'Home', icon: Icons.LayoutDashboard },
-                { id: 'income', label: 'Ricavi', icon: Icons.TrendingUp },
-                { id: 'expenses', label: 'Spese', icon: Icons.TrendingDown },
-                { id: 'simulator', label: 'Simula', icon: Icons.Calculator },
-                { id: 'settings', label: 'Setup', icon: Icons.Settings },
-            ];
+        let users = [];
+        try {
+            const saved = localStorage.getItem('zs_users');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) users = parsed;
+            }
+        } catch (err) {
+            console.error('Errore lettura utenti', err);
+        }
 
-            return (
-                <div className="min-h-screen bg-[#F8F9FC] text-slate-900 font-sans selection:bg-slate-900 selection:text-white">
-                {/* Mobile Header */}
-                <div className="lg:hidden bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-30">
+        let user = users.find((u) => u.email === email);
+
+        if (mode === 'signup' && user) {
+            alert('Esiste già un account con questa email. Usa il login.');
+            return;
+        }
+
+        if (!user) {
+            user = { email, name: name || email.split('@')[0] };
+            users.push(user);
+            try {
+                localStorage.setItem('zs_users', JSON.stringify(users));
+            } catch (err) {
+                console.error('Errore salvataggio utenti', err);
+            }
+        }
+
+        onLogin(user);
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white flex items-center justify-center px-4">
+            <div className="max-w-md w-full">
+                <div className="mb-8 text-center">
                     <Logo />
-                    <button className="p-2 bg-slate-100 rounded-full"><Icons.Settings size={20} /></button>
+                    <p className="mt-4 text-slate-400 text-sm">
+                        Accedi al tuo cruscotto fiscale personale. Niente server: tutti i dati restano nel tuo browser.
+                    </p>
                 </div>
 
-                <div className="flex h-screen overflow-hidden">
-                    {/* Sidebar Desktop */}
-                    <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
+                <div className="bg-slate-900/60 border border-slate-700 rounded-2xl p-6 shadow-2xl backdrop-blur">
+                    <div className="flex mb-6 bg-slate-800/80 rounded-xl p-1">
+                        <button
+                            type="button"
+                            onClick={() => setMode('login')}
+                            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                                mode === 'login'
+                                    ? 'bg-white text-slate-900 shadow'
+                                    : 'text-slate-400'
+                            }`}
+                        >
+                            Login
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMode('signup')}
+                            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                                mode === 'signup'
+                                    ? 'bg-white text-slate-900 shadow'
+                                    : 'text-slate-400'
+                            }`}
+                        >
+                            Registrati
+                        </button>
+                    </div>
+
+                    <form className="space-y-4" onSubmit={handleSubmit}>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                                Email
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full p-3 rounded-xl bg-slate-950/40 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-white/60"
+                                placeholder="nome@esempio.it"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                                Nome (facoltativo)
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full p-3 rounded-xl bg-slate-950/40 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-white/60"
+                                placeholder="Come vuoi comparire nel cruscotto"
+                            />
+                        </div>
+
+                        <Button type="submit" className="w-full justify-center">
+                            {mode === 'login' ? 'Entra' : 'Crea il tuo profilo'}
+                        </Button>
+
+                        <p className="text-[11px] text-slate-500 text-center mt-2">
+                            Le credenziali sono salvate solo nel tuo browser (localStorage). Non c’è alcun server.
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+        const App = () => {
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
+    const [settings, setSettings] = useState(INITIAL_SETTINGS);
+    const [currentUser, setCurrentUser] = useState(null);
+
+    const fiscalData = useTaxCalculator(transactions, settings);
+
+    // Carica utente salvato (se esiste)
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('zs_current_user');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && parsed.email) {
+                    setCurrentUser(parsed);
+                }
+            }
+        } catch (e) {
+            console.error('Errore caricamento utente', e);
+        }
+    }, []);
+
+    // Salva / pulisce utente
+    useEffect(() => {
+        try {
+            if (currentUser) {
+                localStorage.setItem('zs_current_user', JSON.stringify(currentUser));
+            } else {
+                localStorage.removeItem('zs_current_user');
+            }
+        } catch (e) {
+            console.error('Errore salvataggio utente', e);
+        }
+    }, [currentUser]);
+
+    const navItems = [
+        { id: 'dashboard', label: 'Home', icon: Icons.LayoutDashboard },
+        { id: 'income', label: 'Ricavi', icon: Icons.TrendingUp },
+        { id: 'expenses', label: 'Spese', icon: Icons.TrendingDown },
+        { id: 'simulator', label: 'Simula', icon: Icons.Calculator },
+        { id: 'settings', label: 'Setup', icon: Icons.Settings },
+    ];
+
+    const handleLogout = () => {
+        if (confirm('Vuoi uscire da Zero Sorprese?')) {
+            setCurrentUser(null);
+            setActiveTab('dashboard');
+        }
+    };
+
+    // Se non c'è utente loggato → mostra la pagina Auth
+    if (!currentUser) {
+        return <Auth onLogin={setCurrentUser} />;
+    }
+
+    return (
+        <div className="min-h-screen bg-[#F8F9FC] text-slate-900 font-sans selection:bg-slate-900 selection:text-white">
+            {/* Mobile Header */}
+            <div className="lg:hidden bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-30">
+                <Logo />
+                <button
+                    className="p-2 bg-slate-100 rounded-full text-xs font-medium"
+                    onClick={handleLogout}
+                >
+                    Esci
+                </button>
+            </div>
+
+            <div className="flex h-screen overflow-hidden">
+                {/* Sidebar Desktop */}
+                <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
                     <div className="p-8 pb-4">
                         <Logo />
                     </div>
-                    
-                    <nav className="flex-1 px-4 space-y-1 mt-6">
+
+                    <div className="px-6 text-xs text-slate-400 uppercase tracking-[0.25em] font-semibold mt-2">
+                        Ciao, <span className="text-slate-900">{currentUser?.name || currentUser?.email}</span>
+                    </div>
+
+                    <nav className="flex-1 px-4 space-y-1 mt-4">
                         {navItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => setActiveTab(item.id)}
-                            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${
-                            activeTab === item.id 
-                                ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20' 
-                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3">
-                            {/* Renderiamo icona componente */}
-                            <item.icon size={20} className={activeTab === item.id ? 'text-slate-300' : 'text-slate-400 group-hover:text-slate-600'} />
-                            {item.label}
-                            </div>
-                            {activeTab === item.id && <Icons.ChevronRight size={16} className="text-slate-500" />}
-                        </button>
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id)}
+                                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${
+                                    activeTab === item.id
+                                        ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20'
+                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <item.icon
+                                        size={20}
+                                        className={
+                                            activeTab === item.id
+                                                ? 'text-slate-300'
+                                                : 'text-slate-400 group-hover:text-slate-600'
+                                        }
+                                    />
+                                    {item.label}
+                                </div>
+                                {activeTab === item.id && (
+                                    <Icons.ChevronRight size={16} className="text-slate-500" />
+                                )}
+                            </button>
                         ))}
                     </nav>
 
                     <div className="p-6 mt-auto">
+                        <Button
+                            onClick={handleLogout}
+                            variant="secondary"
+                            className="w-full text-xs justify-center mb-3"
+                        >
+                            Esci dall’account
+                        </Button>
+
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                             <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 bg-white rounded-lg shadow-sm">
-                                <Icons.Briefcase size={18} className="text-slate-900" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] uppercase font-bold text-slate-400">Gruppo</p>
-                                <p className="font-bold text-sm text-slate-900">Refisa S.r.l.</p>
-                            </div>
+                                <div className="p-2 bg-white rounded-lg shadow-sm">
+                                    <Icons.Briefcase size={18} className="text-slate-900" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400">
+                                        Gruppo
+                                    </p>
+                                    <p className="font-bold text-sm text-slate-900">Refisa S.r.l.</p>
+                                </div>
                             </div>
                             <div className="text-[10px] text-slate-400 leading-tight">
-                            Zero Sorprese è una Business Unit dedicata ai professionisti.
+                                Zero Sorprese è una Business Unit dedicata ai professionisti.
                             </div>
                         </div>
                     </div>
-                    </aside>
+                </aside>
 
-                    {/* Main Content */}
-                    <main className="flex-1 overflow-y-auto relative">
+                {/* Main Content */}
+                <main className="flex-1 overflow-y-auto relative">
                     <div className="p-6 lg:p-10 max-w-7xl mx-auto pb-32 lg:pb-10">
                         <header className="flex justify-between items-end mb-10 hidden lg:flex">
                             <div>
-                            <h1 className="text-3xl font-bold text-slate-900 capitalize tracking-tight">
-                                {activeTab === 'dashboard' ? `Bentornato.` : navItems.find(i => i.id === activeTab)?.label}
-                            </h1>
-                            <p className="text-slate-400 text-sm mt-1 font-medium">
-                                {activeTab === 'dashboard' ? 'Il tuo cruscotto finanziario è aggiornato.' : 'Gestione operativa della contabilità.'}
-                            </p>
+                                <h1 className="text-3xl font-bold text-slate-900 capitalize tracking-tight">
+                                    {activeTab === 'dashboard'
+                                        ? `Bentornato, ${currentUser?.name || currentUser?.email}`
+                                        : navItems.find((i) => i.id === activeTab)?.label}
+                                </h1>
+                                <p className="text-slate-400 text-sm mt-1 font-medium">
+                                    {activeTab === 'dashboard'
+                                        ? 'Il tuo cruscotto finanziario è aggiornato.'
+                                        : 'Gestione operativa della contabilità.'}
+                                </p>
                             </div>
                             <div className="text-right">
-                            <div className="flex items-center gap-2 justify-end text-slate-400 text-xs font-bold uppercase mb-1">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Sync
-                            </div>
-                            <p className="text-sm text-slate-500 font-medium">{new Date().toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                <div className="flex items-center gap-2 justify-end text-slate-400 text-xs font-bold uppercase mb-1">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>{' '}
+                                    Live Sync
+                                </div>
+                                <p className="text-sm text-slate-500 font-medium">
+                                    {new Date().toLocaleDateString('it-IT', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                    })}
+                                </p>
                             </div>
                         </header>
 
-                        {activeTab === 'dashboard' && <Dashboard data={fiscalData} settings={settings} />}
-                        {activeTab === 'income' && <Transactions transactions={transactions} setTransactions={setTransactions} type="income" />}
-                        {activeTab === 'expenses' && <Transactions transactions={transactions} setTransactions={setTransactions} type="expense" />}
-                        {activeTab === 'simulator' && <Simulator currentData={fiscalData} settings={settings} />}
-                        {activeTab === 'settings' && <SettingsPage settings={settings} setSettings={setSettings} />}
+                        {activeTab === 'dashboard' && (
+                            <Dashboard data={fiscalData} settings={settings} />
+                        )}
+                        {activeTab === 'income' && (
+                            <Transactions
+                                transactions={transactions}
+                                setTransactions={setTransactions}
+                                type="income"
+                            />
+                        )}
+                        {activeTab === 'expenses' && (
+                            <Transactions
+                                transactions={transactions}
+                                setTransactions={setTransactions}
+                                type="expense"
+                            />
+                        )}
+                        {activeTab === 'simulator' && (
+                            <Simulator currentData={fiscalData} settings={settings} />
+                        )}
+                        {activeTab === 'settings' && (
+                            <SettingsPage settings={settings} setSettings={setSettings} />
+                        )}
                     </div>
-                    </main>
+                </main>
 
-                    {/* Mobile Bottom Nav */}
-                    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-4 z-40 safe-area-bottom shadow-2xl">
-                        {navItems.map((item) => (
+                {/* Mobile Bottom Nav */}
+                <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-4 z-40 safe-area-bottom shadow-2xl">
+                    {navItems.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => setActiveTab(item.id)}
                             className={`p-3 rounded-2xl transition-all ${
-                            activeTab === item.id 
-                                ? 'text-white bg-slate-900 shadow-lg shadow-slate-900/20' 
-                                : 'text-slate-400'
+                                activeTab === item.id
+                                    ? 'text-white bg-slate-900 shadow-lg shadow-slate-900/20'
+                                    : 'text-slate-400'
                             }`}
                         >
                             <item.icon size={24} />
                         </button>
-                        ))}
-                    </nav>
-                </div>
-                </div>
-            );
-        };
+                    ))}
+                </nav>
+            </div>
+        </div>
+    );
+};
+
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
 </html>
+
