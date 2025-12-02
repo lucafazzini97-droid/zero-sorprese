@@ -333,169 +333,229 @@
         };
 
         // --- PAGINE ---
-        const Dashboard = ({ data, settings }) => {
-            const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+       const Dashboard = ({ data, settings }) => {
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-                    const handleDownloadReport = () => {
-                setIsGeneratingReport(true);
-                setTimeout(() => {
-                    // Qui in futuro metteremo il vero download del PDF
-                    console.log("Report PDF generato (placeholder).");
-                    setIsGeneratingReport(false);
-                }, 2000);
-            };
+  const handleDownloadReport = () => {
+    setIsGeneratingReport(true);
+    setTimeout(() => {
+      if (confirm("Report PDF generato con successo! Vuoi scaricarlo?")) {
+        console.log("Download avviato.");
+      }
+      setIsGeneratingReport(false);
+    }, 2000);
+  };
 
+  const chartData = [
+    { name: "Netto", value: data.netIncome, color: "#10B981" },
+    { name: "Tasse", value: data.taxes, color: "#F43F5E" },
+    { name: "INPS", value: data.inps, color: "#F59E0B" },
+    { name: "Spese", value: data.totalExpensesReal, color: "#94A3B8" },
+  ];
 
-            const chartData = [
-                { name: 'Netto', value: data.netIncome, color: '#10B981' }, 
-                { name: 'Tasse', value: data.taxes, color: '#F43F5E' }, 
-                { name: 'INPS', value: data.inps, color: '#F59E0B' }, 
-                { name: 'Spese', value: data.totalExpensesReal, color: '#94A3B8' } 
-            ];
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <SmartAlert revenue={data.totalRevenue} regime={settings.regime} />
 
-            return (
-                <div className="space-y-6 animate-in fade-in duration-500">
-                <SmartAlert revenue={data.totalRevenue} regime={settings.regime} />
+      {/* --- 4 CARD IN ALTO --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* FATTURATO */}
+        <Card>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
+            Fatturato
+          </p>
+          <h3 className="text-2xl font-bold text-slate-900">
+            € {formatMoney(data.totalRevenue)}
+          </h3>
+          <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-flex items-center px-2 py-0.5 rounded">
+            <Icons.TrendingUp size={12} className="mr-1" /> Incassato
+          </div>
+        </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Fatturato</p>
-                    <h3 className="text-2xl font-bold text-slate-900">€ {formatMoney(data.totalRevenue)}</h3>
-                    <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-flex items-center px-2 py-0.5 rounded">
-                        <Icons.TrendingUp size={12} className="mr-1" /> Incassato
-                    </div>
-                    </Card>
+        {/* STIMA TASSE (INPS + IMPOSTE) */}
+        <Card>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
+            Stima Tasse
+          </p>
+          <h3 className="text-2xl font-bold text-rose-600">
+            € {formatMoney(data.totalTaxLoad)}
+          </h3>
+          <div className="mt-2 text-xs text-rose-600 bg-rose-50 inline-flex items-center px-2 py-0.5 rounded">
+            <Icons.AlertCircle size={12} className="mr-1" /> Accantona
+          </div>
+        </Card>
 
-                    <Card>
-                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Stima Tasse</p>
-                    <h3 className="text-2xl font-bold text-rose-600">€ {formatMoney(data.totalTaxLoad)}</h3>
-                    <div className="mt-2 text-xs text-rose-600 bg-rose-50 inline-flex items-center px-2 py-0.5 rounded">
-                        <Icons.AlertCircle size={12} className="mr-1" /> Accantona
-                    </div>
-                    </Card>
+        {/* DISPONIBILE REALE (NETTO) */}
+        <Card className="bg-slate-900 text-white border-slate-800 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Icons.Briefcase size={60} />
+          </div>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
+            Disponibile Reale
+          </p>
+          <h3 className="text-2xl font-bold text-white">
+            € {formatMoney(data.netIncome)}
+          </h3>
+          <div className="mt-2 text-xs text-emerald-400 bg-white/10 inline-flex items-center px-2 py-0.5 rounded border border-white/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
+            Safe to spend
+          </div>
+        </Card>
 
-<Card className="bg-slate-900 text-white border-slate-800 relative overflow-hidden group">
-  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-    <Icons.Briefcase size={60} />
-  </div>
-  <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
-    Disponibile Reale
-  </p>
-  <h3 className="text-2xl font-bold text-white">
-    € {formatMoney(data.netIncome)}
-  </h3>
-  <div className="mt-2 text-xs text-emerald-400 bg-white/10 inline-flex items-center px-2 py-0.5 rounded border border-white/10">
-    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
-    Safe to spend
-  </div>
-</Card>
+        {/* REPORTISTICA */}
+        <Card className="flex flex-col justify-between">
+          <div>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
+              Reportistica
+            </p>
+            <h3 className="text-lg font-bold text-slate-700 mt-1">
+              Report {new Date().getFullYear()}
+            </h3>
+          </div>
+          <Button
+            onClick={handleDownloadReport}
+            variant="secondary"
+            className="w-full mt-2 text-xs py-2"
+            icon={isGeneratingReport ? null : Icons.Download}
+            disabled={isGeneratingReport}
+          >
+            {isGeneratingReport ? "..." : "Scarica PDF"}
+          </Button>
+        </Card>
+      </div>
 
+      {/* --- GRAFICI E TIMELINE --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="font-bold text-slate-800">Analisi Flusso di Cassa</h4>
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  layout="vertical"
+                  margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    horizontal={false}
+                    stroke="#f1f5f9"
+                  />
+                  <XAxis type="number" hide />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={60}
+                    tick={{ fontSize: 12, fill: "#64748b" }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <RechartsTooltip
+                    cursor={{ fill: "#f8fafc" }}
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow:
+                        "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
+                    formatter={(value) => [
+                      `€ ${formatMoney(value)}`,
+                      "Importo",
+                    ]}
+                  />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={32}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
 
-                    <Card className="flex flex-col justify-between">
-                    <div>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Reportistica</p>
-                        <h3 className="text-lg font-bold text-slate-700 mt-1">Report {new Date().getFullYear()}</h3>
-                    </div>
-                    <Button 
-                        onClick={handleDownloadReport} 
-                        variant="secondary" 
-                        className="w-full mt-2 text-xs py-2" 
-                        icon={isGeneratingReport ? null : Icons.Download}
-                        disabled={isGeneratingReport}
-                    >
-                        {isGeneratingReport ? '...' : 'Scarica PDF'}
-                    </Button>
-                    </Card>
-                </div>
+          <TaxTimeline taxes={data.taxes} inps={data.inps} />
+        </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 space-y-6">
-                    <Card>
-                        <div className="flex justify-between items-center mb-6">
-                        <h4 className="font-bold text-slate-800">Analisi Flusso di Cassa</h4>
-                        </div>
-                        <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                            <XAxis type="number" hide />
-                            <YAxis dataKey="name" type="category" width={60} tick={{fontSize: 12, fill: '#64748b'}} axisLine={false} tickLine={false} />
-                            <RechartsTooltip 
-                                cursor={{fill: '#f8fafc'}}
-                                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                                formatter={(value) => [`€ ${formatMoney(value)}`, 'Importo']} 
-                            />
-                            <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={32}>
-                                {chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                        </div>
-                    </Card>
-                    <TaxTimeline taxes={data.taxes} inps={data.inps} />
-                    </div>
+        <div className="space-y-6">
+          <Card>
+            <h4 className="font-bold text-slate-800 mb-4">Peso Fiscale</h4>
+            <div className="h-56 w-full relative">
+              <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                <span className="text-3xl font-bold text-slate-900">
+                  {Math.round(
+                    (data.totalTaxLoad / data.totalRevenue) * 100
+                  )}
+                  %
+                </span>
+                <span className="text-xs text-slate-400 uppercase">
+                  Tax Rate
+                </span>
+              </div>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: "Netto", value: data.netIncome },
+                      { name: "INPS", value: data.inps },
+                      { name: "Imposte", value: data.taxes },
+                      { name: "Spese", value: data.totalExpensesReal },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    <Cell fill="#10B981" />
+                    <Cell fill="#F59E0B" />
+                    <Cell fill="#F43F5E" />
+                    <Cell fill="#94A3B8" />
+                  </Pie>
+                  <RechartsTooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap justify-center gap-3 mt-4">
+              <div className="flex items-center gap-1 text-xs text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Netto
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                INPS
+              </div>
+              <div className="flex items-center gap-1 text-xs text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                Tasse
+              </div>
+            </div>
+          </Card>
 
-                    <div className="space-y-6">
-                    <Card>
-                        <h4 className="font-bold text-slate-800 mb-4">Peso Fiscale</h4>
-                        <div className="h-56 w-full relative">
-                        <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                            <span className="text-3xl font-bold text-slate-900">{Math.round((data.totalTaxLoad / data.totalRevenue) * 100)}%</span>
-                            <span className="text-xs text-slate-400 uppercase">Tax Rate</span>
-                        </div>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                            <Pie
-                                data={[
-                                { name: 'Netto', value: data.netIncome },
-                                { name: 'INPS', value: data.inps },
-                                { name: 'Imposte', value: data.taxes },
-                                { name: 'Spese', value: data.totalExpensesReal }
-                                ]}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={65}
-                                outerRadius={80}
-                                paddingAngle={2}
-                                dataKey="value"
-                                stroke="none"
-                            >
-                                <Cell fill="#10B981" />
-                                <Cell fill="#F59E0B" />
-                                <Cell fill="#F43F5E" />
-                                <Cell fill="#94A3B8" />
-                            </Pie>
-                            <RechartsTooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        </div>
-                        <div className="flex flex-wrap justify-center gap-3 mt-4">
-                            <div className="flex items-center gap-1 text-xs text-slate-600"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Netto</div>
-                            <div className="flex items-center gap-1 text-xs text-slate-600"><span className="w-2 h-2 rounded-full bg-amber-500"></span>INPS</div>
-                            <div className="flex items-center gap-1 text-xs text-slate-600"><span className="w-2 h-2 rounded-full bg-rose-500"></span>Tasse</div>
-                        </div>
-                    </Card>
+          <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none">
+            <div className="flex gap-3">
+              <div className="bg-white/10 p-2.5 rounded-xl h-fit">
+                <Icons.Briefcase size={20} className="text-white" />
+              </div>
+              <div>
+                <h5 className="font-bold text-sm">Il Consiglio di Refisa</h5>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  "Hai un margine operativo del 68%. Considera di investire
+                  parte del netto in formazione deducibile per abbattere
+                  l'imponibile del prossimo anno."
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-                    <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none">
-                        <div className="flex gap-3">
-                        <div className="bg-white/10 p-2.5 rounded-xl h-fit">
-                            <Icons.Briefcase size={20} className="text-white" />
-                        </div>
-                        <div>
-                            <h5 className="font-bold text-sm">Il Consiglio di Refisa</h5>
-                            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                            "Hai un margine operativo del 68%. Considera di investire parte del netto in formazione deducibile per abbattere l'imponibile del prossimo anno."
-                            </p>
-                        </div>
-                        </div>
-                    </Card>
-                    </div>
-                </div>
-                </div>
-            );
-        };
 
         const Transactions = ({ transactions, setTransactions, type }) => {
             const [isAdding, setIsAdding] = useState(false);
@@ -1218,6 +1278,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
