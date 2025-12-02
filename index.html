@@ -918,8 +918,72 @@ const Auth = ({ onLogin }) => {
     const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
     const [settings, setSettings] = useState(INITIAL_SETTINGS);
     const [currentUser, setCurrentUser] = useState(null);
+                // Carica transazioni e impostazioni (se esistono)
+    useEffect(() => {
+        try {
+            const savedTx = localStorage.getItem('zs_transactions');
+            const savedSettings = localStorage.getItem('zs_settings');
+            const savedUser = localStorage.getItem('zs_current_user');
 
-    const fiscalData = useTaxCalculator(transactions, settings);
+            if (savedTx) {
+                const parsedTx = JSON.parse(savedTx);
+                if (Array.isArray(parsedTx)) {
+                    setTransactions(parsedTx);
+                }
+            }
+
+            if (savedSettings) {
+                const parsedSettings = JSON.parse(savedSettings);
+                if (parsedSettings && typeof parsedSettings === 'object') {
+                    setSettings(prev => ({ ...prev, ...parsedSettings }));
+                }
+            }
+
+            if (savedUser) {
+                const parsedUser = JSON.parse(savedUser);
+                if (parsedUser && parsedUser.email) {
+                    setCurrentUser(parsedUser);
+                }
+            }
+        } catch (e) {
+            console.error('Errore nel caricamento dati da localStorage', e);
+        }
+    }, []);
+
+    // Salva transazioni ogni volta che cambiano
+    useEffect(() => {
+        try {
+            localStorage.setItem('zs_transactions', JSON.stringify(transactions));
+        } catch (e) {
+            console.error('Errore nel salvataggio transazioni', e);
+        }
+    }, [transactions]);
+
+    // Salva le impostazioni ogni volta che cambiano
+    useEffect(() => {
+        try {
+            localStorage.setItem('zs_settings', JSON.stringify(settings));
+        } catch (e) {
+            console.error('Errore nel salvataggio impostazioni', e);
+        }
+    }, [settings]);
+
+    // Salva utente ogni volta che cambia
+    useEffect(() => {
+        try {
+            if (currentUser) {
+                localStorage.setItem('zs_current_user', JSON.stringify(currentUser));
+            } else {
+                localStorage.removeItem('zs_current_user');
+            }
+        } catch (e) {
+            console.error('Errore nel salvataggio utente', e);
+        }
+    }, [currentUser]);
+
+const fiscalData = useTaxCalculator(transactions, settings);
+
+    
 
     // Carica utente salvato (se esiste)
     useEffect(() => {
@@ -1135,5 +1199,6 @@ const Auth = ({ onLogin }) => {
     </script>
 </body>
 </html>
+
 
 
