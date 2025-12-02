@@ -633,7 +633,8 @@
                     </Card>
                 )}
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+<div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto no-scrollbar">
+
                     <table className="w-full text-left text-sm text-slate-600">
                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
                         <tr>
@@ -659,9 +660,12 @@
                                 <div className={`w-2 h-2 rounded-full ${tx.deducibility === 100 ? 'bg-emerald-500' : tx.deducibility === 50 ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
                                 </td>
                             )}
-                            <td className={`p-4 text-right font-bold ${type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                {type === 'expense' ? '-' : '+'} € {formatMoney(tx.amount)}
-                            </td>
+                        <td className={`p-4 text-left font-extrabold text-[15px] ${
+    type === 'income' ? 'text-emerald-600' : 'text-rose-600'
+}`}>
+    {type === 'expense' ? '-' : '+'} € {formatMoney(tx.amount)}
+</td>
+
                             <td className="p-4 text-center">
                                 <button 
                                     onClick={() => deleteTx(tx.id)} 
@@ -1208,6 +1212,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
