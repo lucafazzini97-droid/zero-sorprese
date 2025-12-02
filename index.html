@@ -800,122 +800,116 @@
                 </div>
             );
         };
-        const Auth = ({ onLogin }) => {
-    const [mode, setMode] = useState('login'); // login | signup
-    const [email, setEmail] = useState('');
-    const [name, setName] = useState('');
+      // --- SCHERMATA AUTH (LOGIN / REGISTRAZIONE) ---
+const Auth = ({ onLogin }) => {
+  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (!email) return;
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email) return;
 
-        let users = [];
-        try {
-            const saved = localStorage.getItem('zs_users');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed)) users = parsed;
-            }
-        } catch (err) {
-            console.error('Errore lettura utenti', err);
-        }
-
-        let user = users.find((u) => u.email === email);
-
-        if (mode === 'signup' && user) {
-            alert('Esiste già un account con questa email. Usa il login.');
-            return;
-        }
-
-        if (!user) {
-            user = { email, name: name || email.split('@')[0] };
-            users.push(user);
-            try {
-                localStorage.setItem('zs_users', JSON.stringify(users));
-            } catch (err) {
-                console.error('Errore salvataggio utenti', err);
-            }
-        }
-
-        onLogin(user);
+    // Finto utente salvato solo nel browser
+    const user = {
+      email,
+      displayName: displayName || email.split("@")[0],
+      createdAt: new Date().toISOString(),
     };
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white flex items-center justify-center px-4">
-            <div className="max-w-md w-full">
-                <div className="mb-8 text-center">
-                    <Logo />
-                    <p className="mt-4 text-slate-400 text-sm">
-                        Accedi al tuo cruscotto fiscale personale. Niente server: tutti i dati restano nel tuo browser.
-                    </p>
-                </div>
+    // Salvataggio nel localStorage
+    try {
+      localStorage.setItem("zs_current_user", JSON.stringify(user));
+    } catch (e) {
+      console.error("Errore nel salvataggio utente", e);
+    }
 
-                <div className="bg-slate-900/60 border border-slate-700 rounded-2xl p-6 shadow-2xl backdrop-blur">
-                    <div className="flex mb-6 bg-slate-800/80 rounded-xl p-1">
-                        <button
-                            type="button"
-                            onClick={() => setMode('login')}
-                            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                                mode === 'login'
-                                    ? 'bg-white text-slate-900 shadow'
-                                    : 'text-slate-400'
-                            }`}
-                        >
-                            Login
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setMode('signup')}
-                            className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                                mode === 'signup'
-                                    ? 'bg-white text-slate-900 shadow'
-                                    : 'text-slate-400'
-                            }`}
-                        >
-                            Registrati
-                        </button>
-                    </div>
+    onLogin(user);
+  };
 
-                    <form className="space-y-4" onSubmit={handleSubmit}>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
-                                Email
-                            </label>
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3 rounded-xl bg-slate-950/40 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-white/60"
-                                placeholder="nome@esempio.it"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
-                                Nome (facoltativo)
-                            </label>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="w-full p-3 rounded-xl bg-slate-950/40 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-white/60"
-                                placeholder="Come vuoi comparire nel cruscotto"
-                            />
-                        </div>
-
-                        <Button type="submit" className="w-full justify-center">
-                            {mode === 'login' ? 'Entra' : 'Crea il tuo profilo'}
-                        </Button>
-
-                        <p className="text-[11px] text-slate-500 text-center mt-2">
-                            Le credenziali sono salvate solo nel tuo browser (localStorage). Non c’è alcun server.
-                        </p>
-                    </form>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen bg-[#F8F9FC] flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        {/* Logo in alto, uguale al cruscotto */}
+        <div className="mb-10 text-center">
+          <Logo />
+          <p className="mt-4 text-sm text-slate-500">
+            Accedi al tuo cruscotto fiscale personale.
+            <br />
+            Tutti i dati restano nel tuo browser (nessun server).
+          </p>
         </div>
-    );
+
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-[0_15px_40px_rgba(15,23,42,0.08)] border border-slate-100 p-6 md:p-8">
+          {/* Toggle Login / Registrati */}
+          <div className="flex mb-6 bg-slate-100 rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                mode === "login"
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-400"
+              }`}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("register")}
+              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                mode === "register"
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-400"
+              }`}
+            >
+              Registrati
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="nome@esempio.it"
+                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                Nome (facoltativo)
+              </label>
+              <input
+                type="text"
+                placeholder="Come vuoi comparire nel cruscotto"
+                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+            </div>
+
+            <Button className="w-full mt-2" type="submit">
+              {mode === "login" ? "Entra" : "Crea e accedi"}
+            </Button>
+
+            <p className="text-[11px] text-center text-slate-400 mt-2 leading-snug">
+              Le credenziali sono salvate solo nel tuo browser (localStorage).
+              <br />
+              Non c’è alcun server né invio di dati all’esterno.
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 
@@ -1141,4 +1135,5 @@
     </script>
 </body>
 </html>
+
 
