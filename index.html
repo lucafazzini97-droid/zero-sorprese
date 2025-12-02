@@ -8,7 +8,7 @@
     <!-- 1. Stile Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. React & ReactDOM (Core) - ORDINE CORRETTO -->
+    <!-- 2. React & ReactDOM (Core) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
@@ -24,72 +24,11 @@
     <!-- 6. Babel (Compilatore JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- 7. FIREBASE IMPORTS (Aggiunti per Autenticazione e Database) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, deleteDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Variabili Globali fornite dall'ambiente Canvas (MANDATORY)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // 1. Inizializzazione Firebase
-        if (Object.keys(firebaseConfig).length > 0) {
-            const app = initializeApp(firebaseConfig);
-            window.db = getFirestore(app);
-            window.auth = getAuth(app);
-            setLogLevel('debug');
-            
-            // --- ESPOSIZIONE GLOBALE DELLE FUNZIONI FIREBASE (FIX) ---
-            window.firebase = {
-                firestore: {
-                    collection: collection,
-                    onSnapshot: onSnapshot,
-                    addDoc: addDoc,
-                    deleteDoc: deleteDoc,
-                    doc: doc,
-                },
-                auth: {
-                    onAuthStateChanged: onAuthStateChanged,
-                    signInAnonymously: signInAnonymously,
-                    signOut: signOut,
-                }
-            };
-            // -----------------------------------------------------------
-
-            
-            // 2. Autenticazione Iniziale
-            // Questo listener è necessario per stabilire lo stato iniziale dell'utente
-            window.firebase.auth.onAuthStateChanged(window.auth, async (user) => {
-                if (!user) {
-                    try {
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(window.auth, initialAuthToken);
-                        } else {
-                            // Se l'utente non è loggato (prima volta), proviamo l'accesso anonimo
-                            await signInAnonymously(window.auth);
-                        }
-                    } catch (error) {
-                        console.error("Errore durante l'autenticazione automatica:", error);
-                    }
-                }
-            });
-            
-            // Segnala a React che le API sono state caricate
-            document.dispatchEvent(new CustomEvent('firebase-ready'));
-        } else {
-            console.error("Firebase Config non disponibile. L'app funzionerà senza persistenza.");
-            document.dispatchEvent(new CustomEvent('firebase-ready')); // Invia comunque l'evento per sbloccare la UI
-        }
-    </script>
-    <!-- FINE FIREBASE IMPORTS -->
-
     <!-- Font e Configurazioni Custom -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; }
+        /* Nascondi scrollbar brutte */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -99,7 +38,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: {
-                        slate: { 850: '#1e293b', 950: '#020617' }
+                        slate: { 850: '#1e293b', 950: '#020617' } // Estensioni dark
                     }
                 }
             }
@@ -124,15 +63,10 @@
         const { 
             PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, ResponsiveContainer, Legend 
         } = window.Recharts;
-        
-        // Variabili Globali
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- HELPER FORMATTAZIONE VALUTA ---
         const formatMoney = (amount) => {
-            // Assicuriamo che 'amount' sia un numero valido
-            const num = isNaN(amount) ? 0 : amount;
-            return num.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return amount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
 
         // --- ADAPTER ICONE LUCIDE (CORRETTO E ROBUSTO) ---
@@ -177,8 +111,6 @@
             FileUp: (p) => <Icon name="FileUp" {...p} />,
             Briefcase: (p) => <Icon name="Briefcase" {...p} />,
             ChevronRight: (p) => <Icon name="ChevronRight" {...p} />,
-            LogOut: (p) => <Icon name="LogOut" {...p} />,
-            User: (p) => <Icon name="User" {...p} />,
         };
 
         // --- LOGO COMPONENT ---
@@ -195,8 +127,13 @@
             </div>
         );
 
-        // --- DATI DI ESEMPIO / SETTINGS INIZIALI ---
-        const INITIAL_TRANSACTIONS = []; 
+        // --- DATI DI ESEMPIO ---
+        const INITIAL_TRANSACTIONS = [
+            { id: 1, type: 'income', date: '2024-01-15', description: 'Consulenza Sviluppo Web', amount: 2500, paid: true },
+            { id: 2, type: 'income', date: '2024-02-10', description: 'Progetto E-commerce', amount: 4000, paid: true },
+            { id: 3, type: 'expense', date: '2024-01-20', description: 'Abbonamento Software', amount: 120.50, deductibility: 100, category: 'Software' },
+            { id: 4, type: 'expense', date: '2024-03-05', description: 'Cena aziendale', amount: 80.20, deductibility: 50, category: 'Rappresentanza' },
+        ];
 
         const INITIAL_SETTINGS = {
             regime: 'forfettario', 
@@ -274,7 +211,7 @@
             );
         };
 
-        // --- HOOK LOGICA CALCOLO FISCALE ---
+        // --- HOOK LOGICA ---
         const useTaxCalculator = (transactions, settings, simulatedRevenueAdd = 0) => {
             return useMemo(() => {
                 const incomes = transactions.filter(t => t.type === 'income');
@@ -395,13 +332,14 @@
             );
         };
 
-        // --- PAGINE PRINCIPALI ---
+        // --- PAGINE ---
         const Dashboard = ({ data, settings }) => {
             const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
             const handleDownloadReport = () => {
                 setIsGeneratingReport(true);
                 setTimeout(() => {
+                // Sostituito alert() con la chiamata al browser 'confirm' per rimanere compliant
                 if (confirm("Report PDF generato con successo! Vuoi scaricarlo?")) {
                     console.log("Download avviato.");
                 }
@@ -554,7 +492,7 @@
             );
         };
 
-        const Transactions = ({ transactions, setTransactions, type, userId }) => {
+        const Transactions = ({ transactions, setTransactions, type }) => {
             const [isAdding, setIsAdding] = useState(false);
             const [isImporting, setIsImporting] = useState(false);
             const [isScanning, setIsScanning] = useState(false);
@@ -567,42 +505,24 @@
                 category: 'Generale'
             });
 
-            // Funzione per salvare/aggiornare in Firestore
-            const saveTransaction = async (newTx) => {
-                if (!window.db || !userId) {
-                    console.error("Database non pronto o utente non autenticato.");
-                    return;
-                }
-                const collectionPath = `/artifacts/${APP_ID}/users/${userId}/transactions`;
-                try {
-                    // Usiamo addDoc per creare un nuovo documento con ID automatico
-                    await window.firebase.firestore.addDoc(
-                        window.firebase.firestore.collection(window.db, collectionPath),
-                        newTx
-                    );
-                    console.log("Transazione salvata con successo.");
-                } catch (e) {
-                    console.error("Errore durante il salvataggio della transazione:", e);
-                }
-            };
-            
             const handleImportXML = () => {
                 setIsImporting(true);
-                setTimeout(async () => {
-                    const newTx = {
-                        type: 'income',
-                        description: 'Fattura XML Importata',
-                        amount: Math.floor(Math.random() * 2000) + 500.55,
-                        date: new Date().toISOString().split('T')[0],
-                        paid: true,
-                        category: 'Consulenza',
-                        createdAt: new Date().toISOString()
-                    };
-                    await saveTransaction(newTx);
-                    setIsImporting(false);
-                    if (confirm("Fattura XML importata con successo! Vuoi verificare i dati?")) {
-                        console.log("Dati verificati.");
-                    }
+                setTimeout(() => {
+                const newTx = {
+                    id: Date.now(),
+                    type: 'income',
+                    description: 'Fattura XML #0042',
+                    amount: Math.floor(Math.random() * 2000) + 500.55, // Aggiungo decimali per demo
+                    date: new Date().toISOString().split('T')[0],
+                    paid: true,
+                    category: 'Consulenza'
+                };
+                setTransactions(prev => [...prev, newTx]);
+                setIsImporting(false);
+                // Sostituito alert() con la chiamata al browser 'confirm'
+                if (confirm("Fattura XML importata con successo! Vuoi verificare i dati?")) {
+                    console.log("Dati verificati.");
+                }
                 }, 1500);
             };
 
@@ -621,39 +541,27 @@
                 }, 1800);
             };
 
-            const handleSubmit = async (e) => {
+            const handleSubmit = (e) => {
                 e.preventDefault();
                 const newTx = {
-                    type,
-                    description: formData.description,
-                    amount: parseFloat(formData.amount),
-                    date: formData.date,
-                    deducibility: parseInt(formData.deductibility),
-                    category: formData.category,
-                    paid: true,
-                    createdAt: new Date().toISOString()
+                id: Date.now(),
+                type,
+                description: formData.description,
+                amount: parseFloat(formData.amount),
+                date: formData.date,
+                deductibility: parseInt(formData.deductibility),
+                category: formData.category,
+                paid: true
                 };
-                await saveTransaction(newTx);
+                setTransactions([...transactions, newTx]);
                 setIsAdding(false);
                 setFormData({ description: '', amount: '', date: new Date().toISOString().split('T')[0], deductibility: 100, category: 'Generale' });
             };
 
             // FUNZIONE ELIMINAZIONE CORRETTA
-            const deleteTx = async (docId) => {
-                if (!window.db || !userId) {
-                    console.error("Database non pronto o utente non autenticato.");
-                    return;
-                }
+            const deleteTx = (id) => {
                 if (confirm('Sei sicuro di voler eliminare questa voce? L\'operazione è irreversibile.')) {
-                    const docPath = `/artifacts/${APP_ID}/users/${userId}/transactions/${docId}`;
-                    try {
-                        await window.firebase.firestore.deleteDoc(
-                            window.firebase.firestore.doc(window.db, docPath)
-                        );
-                        console.log("Transazione eliminata con successo:", docId);
-                    } catch (e) {
-                        console.error("Errore durante l'eliminazione della transazione:", e);
-                    }
+                    setTransactions(current => current.filter(t => t.id !== id));
                 }
             };
 
@@ -893,151 +801,12 @@
             );
         };
 
-        // --- COMPONENTE AUTENTICAZIONE/CARICAMENTO ---
-        const LoadingScreen = () => (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-slate-900"></div>
-                <p className="mt-4 text-slate-600 font-medium">Caricamento dati fiscali...</p>
-                <p className="mt-1 text-xs text-slate-400">Connessione a Firestore...</p>
-            </div>
-        );
-
-        const AuthScreen = ({ onSignIn }) => {
-            return (
-                <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-                    <Card className="max-w-md w-full text-center p-8 space-y-6">
-                        <Logo />
-                        <h2 className="text-xl font-bold text-slate-900 mt-4">Accedi a Zero Sorprese</h2>
-                        <p className="text-slate-500">
-                            Per un'esperienza completa e persistente, accedi o continua in modalità anonima.
-                        </p>
-                        <Button onClick={onSignIn} icon={Icons.User} className="w-full">
-                            Accedi/Continua (Modalità Semplificata)
-                        </Button>
-                        <div className="text-xs text-slate-400 mt-4">
-                            L'accesso con email/password è disabilitato in questa demo.
-                        </div>
-                    </Card>
-                </div>
-            );
-        };
-
-
-        // --- APP PRINCIPALE CON LOGICA FIREBASE ---
         const App = () => {
-            const [authState, setAuthState] = useState({ 
-                user: null, 
-                loading: true, 
-                dbReady: false 
-            });
             const [activeTab, setActiveTab] = useState('dashboard');
-            const [transactions, setTransactions] = useState([]);
+            const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
             const [settings, setSettings] = useState(INITIAL_SETTINGS);
-
-            // 1. Logica di Inizializzazione e Ascolto Firebase
-            useEffect(() => {
-                let safetyTimeout;
-
-                const handleFirebaseReady = () => {
-                    setAuthState(prev => ({ ...prev, dbReady: true }));
-                };
-                document.addEventListener('firebase-ready', handleFirebaseReady);
-                
-                // MECCANISMO DI SICUREZZA: Forzare il non-blocco dopo 10 secondi
-                safetyTimeout = setTimeout(() => {
-                    console.warn("Timeout di sicurezza scaduto. Imposto loading a false per evitare un loop infinito.");
-                    setAuthState(prev => ({ ...prev, loading: false }));
-                }, 10000); // 10 secondi
-
-                // Set up auth state listener
-                if (window.auth) {
-                    const unsubscribeAuth = window.firebase.auth.onAuthStateChanged(window.auth, (user) => {
-                         // Rimuovi il timeout quando l'autenticazione si risolve
-                        clearTimeout(safetyTimeout);
-                        setAuthState(prev => ({ 
-                            ...prev, 
-                            user: user, 
-                            loading: false 
-                        }));
-                    });
-                    return () => {
-                         clearTimeout(safetyTimeout);
-                         document.removeEventListener('firebase-ready', handleFirebaseReady);
-                         unsubscribeAuth();
-                    }
-                } else {
-                    // Fallback se Firebase non è proprio caricato
-                    clearTimeout(safetyTimeout);
-                    setAuthState(prev => ({ ...prev, loading: false, dbReady: false }));
-                    return () => document.removeEventListener('firebase-ready', handleFirebaseReady);
-                }
-            }, []);
-
-            // 2. Logica di Caricamento Dati (Firestore)
-            useEffect(() => {
-                if (!authState.dbReady || !authState.user || !window.db) {
-                    setTransactions([]); // Pulisci se non autenticato o non pronto
-                    return;
-                }
-                
-                const userId = authState.user.uid;
-                const collectionPath = `/artifacts/${APP_ID}/users/${userId}/transactions`;
-                const transactionsRef = window.firebase.firestore.collection(window.db, collectionPath);
-                
-                // Imposta il listener in tempo reale (onSnapshot)
-                const unsubscribe = window.firebase.firestore.onSnapshot(
-                    transactionsRef, 
-                    (snapshot) => {
-                        const loadedTransactions = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        }));
-                        setTransactions(loadedTransactions);
-                        console.log(`[Firestore] Caricate ${loadedTransactions.length} transazioni per l'utente ${userId}.`);
-                    }, 
-                    (error) => {
-                        console.error("[Firestore] Errore nel caricamento dati:", error);
-                    }
-                );
-
-                return () => unsubscribe(); // Pulizia al dismount o cambio utente
-            }, [authState.dbReady, authState.user]); 
-
-            // Funzione per sign-in/continua (utilizza signInAnonymously come fallback)
-            const handleSignIn = async () => {
-                if (window.auth) {
-                    try {
-                        // Tenta l'accesso anonimo se non c'è già un utente
-                        if (!authState.user) {
-                             await window.firebase.auth.signInAnonymously(window.auth);
-                        }
-                    } catch (error) {
-                         console.error("Errore durante l'accesso:", error);
-                    }
-                }
-            };
-
-            const handleSignOut = async () => {
-                if (window.auth) {
-                    try {
-                        await window.firebase.auth.signOut(window.auth);
-                        setTransactions([]); // Pulisci i dati locali dopo il logout
-                    } catch (error) {
-                        console.error("Errore durante il logout:", error);
-                    }
-                }
-            };
-
-
-            if (authState.loading || !authState.dbReady) {
-                return <LoadingScreen />;
-            }
-            
-            if (!authState.user) {
-                return <AuthScreen onSignIn={handleSignIn} />;
-            }
-
             const fiscalData = useTaxCalculator(transactions, settings);
+
             const navItems = [
                 { id: 'dashboard', label: 'Home', icon: Icons.LayoutDashboard },
                 { id: 'income', label: 'Ricavi', icon: Icons.TrendingUp },
@@ -1073,6 +842,7 @@
                             }`}
                         >
                             <div className="flex items-center gap-3">
+                            {/* Renderiamo icona componente */}
                             <item.icon size={20} className={activeTab === item.id ? 'text-slate-300' : 'text-slate-400 group-hover:text-slate-600'} />
                             {item.label}
                             </div>
@@ -1081,20 +851,22 @@
                         ))}
                     </nav>
 
-                    <div className="p-6 mt-auto border-t border-slate-100">
-                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Icons.User size={18} className="text-slate-500"/>
-                                <span className="text-xs text-slate-700 font-bold tracking-tight break-all">
-                                    ID: {authState.user.uid}
-                                </span>
+                    <div className="p-6 mt-auto">
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                            <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                                <Icons.Briefcase size={18} className="text-slate-900" />
                             </div>
-                            <button onClick={handleSignOut} className="p-1 text-slate-400 hover:text-rose-500 transition-colors" title="Esci">
-                                <Icons.LogOut size={20}/>
-                            </button>
+                            <div>
+                                <p className="text-[10px] uppercase font-bold text-slate-400">Gruppo</p>
+                                <p className="font-bold text-sm text-slate-900">Refisa S.r.l.</p>
+                            </div>
+                            </div>
+                            <div className="text-[10px] text-slate-400 leading-tight">
+                            Zero Sorprese è una Business Unit dedicata ai professionisti.
+                            </div>
                         </div>
                     </div>
-
                     </aside>
 
                     {/* Main Content */}
@@ -1118,14 +890,14 @@
                         </header>
 
                         {activeTab === 'dashboard' && <Dashboard data={fiscalData} settings={settings} />}
-                        {activeTab === 'income' && <Transactions transactions={transactions} setTransactions={setTransactions} type="income" userId={authState.user.uid} />}
-                        {activeTab === 'expenses' && <Transactions transactions={transactions} setTransactions={setTransactions} type="expense" userId={authState.user.uid} />}
+                        {activeTab === 'income' && <Transactions transactions={transactions} setTransactions={setTransactions} type="income" />}
+                        {activeTab === 'expenses' && <Transactions transactions={transactions} setTransactions={setTransactions} type="expense" />}
                         {activeTab === 'simulator' && <Simulator currentData={fiscalData} settings={settings} />}
                         {activeTab === 'settings' && <SettingsPage settings={settings} setSettings={setSettings} />}
                     </div>
                     </main>
 
-                    <!-- Mobile Bottom Nav -->
+                    {/* Mobile Bottom Nav */}
                     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-slate-200 flex justify-around p-4 z-40 safe-area-bottom shadow-2xl">
                         {navItems.map((item) => (
                         <button
