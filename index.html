@@ -21,6 +21,7 @@
     <!-- 5. Lucide (Icone) - Versione Fissata Stabile e Percorso UMD Corretto -->
     <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
     
+    
     <!-- 6. Babel (Compilatore JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
@@ -333,7 +334,7 @@
         };
 
         // --- PAGINE ---
-       const Dashboard = ({ data, settings }) => {
+      const Dashboard = ({ data, settings }) => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const handleDownloadReport = () => {
@@ -1278,6 +1279,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
