@@ -18,7 +18,7 @@
 <!-- 4. Recharts (Grafici) - Versione Fissata Stabile -->
 <script src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
 
-<!-- jsPDF per generare il PDF -->
+<!-- 4.5 jsPDF (per generare il PDF brandizzato) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
 <!-- 5. Lucide (Icone) - Versione Fissata Stabile e Percorso UMD Corretto -->
@@ -426,16 +426,212 @@
       const Dashboard = ({ data, settings }) => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-            const handleDownloadReport = () => {
-                setIsGeneratingReport(true);
-                try {
-                    generatePdfReport(data, settings);
-                } catch (e) {
-                    console.error("Errore durante la generazione del PDF", e);
-                } finally {
-                    setIsGeneratingReport(false);
+    const handleDownloadReport = () => {
+        setIsGeneratingReport(true);
+
+        try {
+            // Recupero jsPDF dalla libreria UMD
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF) {
+                console.error("jsPDF non è caricato. Controlla lo <script> nel <head>.");
+                setIsGeneratingReport(false);
+                return;
+            }
+
+            const doc = new jsPDF({
+                unit: "mm",
+                format: "a4",
+            });
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            let y = 15;
+
+            const today = new Date();
+            const year = today.getFullYear();
+            const dateStr = today.toLocaleDateString("it-IT");
+
+            // --- BANNER SCURO IN ALTO (brand Zero Sorprese) ---
+            doc.setFillColor(10, 17, 40); // sfondo tipo slate-950
+            doc.rect(0, 0, pageWidth, 35, "F");
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(18);
+            doc.text("ZERO SORPRESE", 12, 15);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.text("BU of REFISA · Cruscotto Fiscale", 12, 22);
+
+            doc.setFontSize(11);
+            doc.text(`Report Fiscale ${year}`, pageWidth - 12, 15, { align: "right" });
+            doc.setFontSize(9);
+            doc.text(`Generato il ${dateStr}`, pageWidth - 12, 22, { align: "right" });
+
+            // spostiamo il cursore sotto il banner
+            y = 42;
+
+            // --- BOX CONFIGURAZIONE FISCALE (colonna sinistra) ---
+            doc.setTextColor(30, 41, 59); // slate-800
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.text("Configurazione Fiscale", 12, y);
+            y += 3;
+
+            // lineetta sotto il titolo
+            doc.setDrawColor(148, 163, 184); // slate-400
+            doc.setLineWidth(0.4);
+            doc.line(12, y, pageWidth / 2 - 6, y);
+            y += 6;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+
+            const regimeLabel =
+                settings.regime === "forfettario" ? "Regime Forfettario" : "Regime Ordinario";
+
+            doc.text(`Regime: ${regimeLabel}`, 12, y);
+            y += 6;
+
+            if (settings.regime === "forfettario") {
+                doc.text(
+                    `Coeff. Redditività: ${settings.coefficienteRedditivita.toFixed(0)}%`,
+                    12,
+                    y
+                );
+                y += 5;
+                doc.text(
+                    `Imposta Sostitutiva: ${settings.impostaSostitutiva.toFixed(0)}%`,
+                    12,
+                    y
+                );
+                y += 5;
+            } else {
+                doc.text("Regime Ordinario con scaglioni IRPEF personalizzati.", 12, y);
+                y += 5;
+            }
+
+            doc.text(
+                `Aliquota INPS stimata: ${settings.aliquotaInps.toFixed(2)}%`,
+                12,
+                y
+            );
+            y += 10;
+
+            // --- BOX SINTESI NUMERICA (colonna destra) ---
+            const rightX = pageWidth / 2 + 4;
+            let ry = 42;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.text("Sintesi Numerica", rightX, ry);
+            ry += 3;
+
+            doc.setDrawColor(148, 163, 184);
+            doc.setLineWidth(0.4);
+            doc.line(rightX, ry, pageWidth - 12, ry);
+            ry += 6;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+
+            const addLine = (label, value, color = null) => {
+                if (color) {
+                    doc.setTextColor(color[0], color[1], color[2]);
+                } else {
+                    doc.setTextColor(30, 41, 59);
                 }
+                doc.text(label, rightX, ry);
+                doc.setTextColor(15, 23, 42);
+                doc.setFont("helvetica", "bold");
+                doc.text(
+                    `€ ${value.toLocaleString("it-IT", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                    })}`,
+                    pageWidth - 12,
+                    ry,
+                    { align: "right" }
+                );
+                doc.setFont("helvetica", "normal");
+                ry += 6;
             };
+
+            addLine("Fatturato totale", data.totalRevenue, [16, 185, 129]); // verde
+            addLine("Spese registrate", data.totalExpensesReal, [148, 163, 184]); // grigio
+            addLine("Imponibile stimato", data.taxableIncome, [37, 99, 235]); // blu
+            addLine("Contributi INPS", data.inps, [245, 158, 11]); // giallo
+            addLine("Imposte", data.taxes, [239, 68, 68]); // rosso
+            addLine("Carico fiscale totale", data.totalTaxLoad, [239, 68, 68]); // rosso
+            addLine("Disponibile reale", data.netIncome, [16, 185, 129]); // verde
+
+            // --- CARD FINALE "Disponibile Reale" in stile Zero Sorprese ---
+            let cardY = Math.max(y, ry) + 10;
+
+            doc.setFillColor(15, 23, 42); // sfondo scuro
+            doc.roundedRect(12, cardY, pageWidth - 24, 30, 3, 3, "F");
+
+            doc.setTextColor(148, 163, 184);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.text("DISPONIBILE REALE", 18, cardY + 8);
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text(
+                `€ ${data.netIncome.toLocaleString("it-IT", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                })}`,
+                18,
+                cardY + 18
+            );
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(52, 211, 153); // verde "safe"
+            doc.text("Safe to spend (stima indicativa)", 18, cardY + 24);
+
+            // --- NOTE FINALI ---
+            const noteY = cardY + 40;
+            doc.setTextColor(100, 116, 139); // slate-500
+            doc.setFontSize(8);
+            doc.text(
+                "Nota: valori indicativi basati sui dati attualmente inseriti nel cruscotto Zero Sorprese.",
+                12,
+                noteY
+            );
+            doc.text(
+                "Questo report non sostituisce un consulto fiscale professionale.",
+                12,
+                noteY + 4
+            );
+
+            // --- FOOTER ---
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.3);
+            doc.line(12, 287, pageWidth - 12, 287);
+
+            doc.setTextColor(148, 163, 184);
+            doc.setFontSize(7);
+            doc.text("Zero Sorprese · BU of Refisa S.r.l.", 12, 293);
+            doc.text(
+                `Report generato il ${dateStr}`,
+                pageWidth - 12,
+                293,
+                { align: "right" }
+            );
+
+            // Salvataggio del PDF
+            doc.save(`zero-sorprese-report-${year}.pdf`);
+        } catch (err) {
+            console.error("Errore nella generazione del PDF:", err);
+        } finally {
+            setIsGeneratingReport(false);
+        }
+    };
+
 
 
   const chartData = [
@@ -1498,6 +1694,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
