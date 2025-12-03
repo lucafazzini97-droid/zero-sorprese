@@ -867,117 +867,245 @@
                 </div>
             );
         };
-      // --- SCHERMATA AUTH (LOGIN / REGISTRAZIONE) ---
+   // --- SCHERMATA AUTH (LOGIN) NUOVA VERSIONE ---
 const Auth = ({ onLogin }) => {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
-  const handleSubmit = (e) => {
+  const [email, setEmail] = useState("demo@zerosorprese.it");
+  const [password, setPassword] = useState("password123");
+
+  const handleLogin = (e) => {
     e.preventDefault();
     if (!email) return;
 
-    // Finto utente salvato solo nel browser
-    const user = {
-      email,
-      displayName: displayName || email.split("@")[0],
-      createdAt: new Date().toISOString(),
-    };
+    setIsLoading(true);
 
-    // Salvataggio nel localStorage
-    try {
-      localStorage.setItem("zs_current_user", JSON.stringify(user));
-    } catch (e) {
-      console.error("Errore nel salvataggio utente", e);
-    }
+    // Simulazione login (qui in futuro potrai mettere Firebase o altro)
+    setTimeout(() => {
+      setIsLoading(false);
+      setLoginSuccess(true);
 
-    onLogin(user);
+      const user = {
+        email,
+        // uso "name" perché il resto dell'app usa currentUser.name
+        name: email.split("@")[0],
+      };
+
+      onLogin(user); // diciamo all'app: "utente loggato"
+    }, 800);
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FC] flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        {/* Logo in alto, uguale al cruscotto */}
-        <div className="mb-10 text-center">
-          <Logo />
-          <p className="mt-4 text-sm text-slate-500">
-            Accedi al tuo cruscotto fiscale personale.
-            <br />
-            Tutti i dati restano nel tuo browser (nessun server).
-          </p>
+    <div className="min-h-screen flex bg-white font-sans text-slate-900 overflow-hidden">
+      {/* LATO SINISTRO - BRAND (solo desktop) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-950 text-white flex-col justify-between p-16 relative">
+        {/* Pattern di sfondo geometrico */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <svg width="100%" height="100%">
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
+            </pattern>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-[0_15px_40px_rgba(15,23,42,0.08)] border border-slate-100 p-6 md:p-8">
-          {/* Toggle Login / Registrati */}
-          <div className="flex mb-6 bg-slate-100 rounded-xl p-1">
+        <div className="relative z-10">
+          <Logo light={true} />
+        </div>
+
+        <div className="relative z-10 max-w-lg">
+          <h1 className="text-5xl font-black mb-6 leading-tight">
+            La tua fiscalità, <br />
+            <span className="text-emerald-400">sotto controllo.</span>
+          </h1>
+          <p className="text-slate-400 text-lg leading-relaxed mb-8">
+            Zero Sorprese è lo strumento professionale progettato da Refisa per darti
+            chiarezza totale su tasse, scadenze e margini reali.
+          </p>
+
+          <div className="flex gap-4 text-sm font-semibold text-slate-300">
+            <div className="flex items-center gap-2">
+              <div className="p-1 bg-emerald-500/20 rounded-full text-emerald-400">
+                <Icon name="Check" size={14} />
+              </div>
+              <span>Previsionale Tasse</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1 bg-emerald-500/20 rounded-full text-emerald-400">
+                <Icon name="Check" size={14} />
+              </div>
+              <span>Simulatore Scenari</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative z-10 text-xs text-slate-600 font-mono">
+          Refisa S.r.l. © {new Date().getFullYear()} - P.IVA 12345678901
+        </div>
+      </div>
+
+      {/* LATO DESTRO - FORM LOGIN */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-24 bg-white relative">
+        <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Logo solo su mobile */}
+          <div className="lg:hidden mb-8 text-center flex justify-center">
+            <Logo />
+          </div>
+
+          <div className="text-center lg:text-left">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Bentornato</h2>
+            <p className="mt-2 text-slate-500">Accedi al tuo cruscotto finanziario.</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5 mt-8">
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5 ml-1">
+                Email aziendale
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors">
+                  <Icon name="User" size={20} />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all font-medium"
+                  placeholder="nome@azienda.com"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password (solo estetica per ora) */}
+            <div>
+              <div className="flex justify-between items-center mb-1.5 ml-1">
+                <label className="block text-xs font-bold uppercase text-slate-500">
+                  Password
+                </label>
+                <a
+                  href="#"
+                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                >
+                  Password dimenticata?
+                </a>
+              </div>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors">
+                  <Icon name="Lock" size={20} />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all font-medium"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Ricordami */}
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                className="h-4 w-4 text-slate-900 focus:ring-slate-900 border-gray-300 rounded cursor-pointer"
+              />
+              <label
+                htmlFor="remember-me"
+                className="ml-2 block text-sm font-medium text-slate-600 cursor-pointer select-none"
+              >
+                Ricorda questo dispositivo
+              </label>
+            </div>
+
+            {/* Bottone */}
             <button
-              type="button"
-              onClick={() => setMode("login")}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                mode === "login"
-                  ? "bg-white shadow-sm text-slate-900"
-                  : "text-slate-400"
+              type="submit"
+              disabled={isLoading}
+              className={`w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent rounded-2xl shadow-xl shadow-slate-900/10 text-sm font-bold text-white transition-all duration-200 active:scale-[0.98] ${
+                loginSuccess ? "bg-emerald-500 hover:bg-emerald-600" : "bg-slate-900 hover:bg-slate-800"
               }`}
             >
-              Login
+              {isLoading ? (
+                <>
+                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Verifica credenziali...</span>
+                </>
+              ) : loginSuccess ? (
+                <>
+                  <Icon name="Check" size={20} />
+                  <span>Accesso autorizzato</span>
+                </>
+              ) : (
+                <>
+                  <span>Accedi al cruscotto</span>
+                  <Icon name="ArrowRight" size={18} />
+                </>
+              )}
             </button>
+          </form>
+
+          {/* Separatore */}
+          <div className="relative py-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-100"></div>
+            </div>
+            <div className="relative flex justify-center">
+              <span className="px-4 bg-white text-xs text-slate-400 font-medium uppercase tracking-wider">
+                oppure
+              </span>
+            </div>
+          </div>
+
+          {/* Pulsanti social (per ora finti) */}
+          <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() => setMode("register")}
-              className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all ${
-                mode === "register"
-                  ? "bg-white shadow-sm text-slate-900"
-                  : "text-slate-400"
-              }`}
+              className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all"
             >
-              Registrati
+              {/* icona "Google style" */}
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path
+                  d="M12.0003 20.45c4.65 0 8.35-3.8 8.35-8.45 0-.75-.05-1.45-.2-2.15h-8.15v3.95h4.75c-.3 1.45-1.35 2.75-2.8 3.55l2.6 2.05c1.6-1.5 2.6-3.8 2.6-6.6 0-.3-.05-.55-.1-1.2H23c.3 1.3.45 2.65.45 4.05 0 5.85-4.75 10.6-10.6 10.6-5.85 0-10.6-4.75-10.6-10.6S6.1503 1.4 12.0003 1.4c2.6 0 4.95.95 6.75 2.5l-2.85 2.85c-1-1-2.5-1.6-3.9-1.6-3.6 0-6.6 2.75-7.7 6.1l2.9 2.25c1.05-3.15 4.05-5.45 7.6-5.45z"
+                  fill="currentColor"
+                />
+              </svg>
+              Google
+            </button>
+
+            <button
+              type="button"
+              className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12c0-5.523-4.477-10-10-10z" />
+              </svg>
+              Apple
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                placeholder="nome@esempio.it"
-                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
+          <p className="text-center text-xs text-slate-400 mt-6">
+            Non hai ancora un account?{" "}
+            <a href="#" className="font-bold text-slate-900 hover:underline">
+              Registra la tua P.IVA
+            </a>
+          </p>
+        </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                Nome (facoltativo)
-              </label>
-              <input
-                type="text"
-                placeholder="Come vuoi comparire nel cruscotto"
-                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none text-sm"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-            </div>
-
-            <Button className="w-full mt-2" type="submit">
-              {mode === "login" ? "Entra" : "Crea e accedi"}
-            </Button>
-
-            <p className="text-[11px] text-center text-slate-400 mt-2 leading-snug">
-              Le credenziali sono salvate solo nel tuo browser (localStorage).
-              <br />
-              Non c’è alcun server né invio di dati all’esterno.
-            </p>
-          </form>
+        {/* Footer mobile */}
+        <div className="absolute bottom-4 text-[10px] text-slate-300 lg:hidden">
+          BU of REFISA
         </div>
       </div>
     </div>
   );
 };
+
 
 
         const App = () => {
@@ -1279,6 +1407,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
