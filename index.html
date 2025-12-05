@@ -559,47 +559,124 @@
                 description: '', amount: '', date: new Date().toISOString().split('T')[0], category: 'Generale', deductibility: 100
             });
             const fileInputRef = useRef(null);
+            // Converte numeri "italiani" tipo 1.234,56 → 1234.56
+const parseItalianNumber = (value) => {
+  if (value == null) return 0;
+  if (typeof value === 'number') return value;
 
-            const handleImportCSV = (e) => {
-                const file = e.target.files && e.target.files[0];
-                if (!file) return;
+  const cleaned = String(value)
+    .trim()
+    .replace(/\./g, '')    // togli i punti delle migliaia
+    .replace(',', '.');    // virgola → punto
 
-                if (!window.Papa) {
-                    alert("Motore CSV non pronto. Riprova tra un secondo.");
-                    return;
-                }
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+};
 
-                window.Papa.parse(file, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        const newTx = [];
-                        results.data.forEach((row, idx) => {
-                            // Logica adattiva per colonne comuni TeamSystem
-                            const desc = row['Descrizione'] || row['Causale'] || 'Import CSV';
-                            const valStr = row['Saldo'] || row['Importo'] || row['Dare'] || '0';
-                            const val = parseItalianNumber(valStr);
-                            
-                            // Determina se è entrata o uscita in base al tipo richiesto e al segno
-                            // Qui semplifichiamo: se siamo in "Ricavi", importiamo tutto come positivo
-                            if (val !== 0) {
-                                newTx.push({
-                                    id: Date.now() + idx,
-                                    type: type,
-                                    date: new Date().toISOString().split('T')[0], // Default a oggi se manca data
-                                    description: desc,
-                                    amount: Math.abs(val),
-                                    category: 'Import',
-                                    deductibility: 100
-                                });
-                            }
-                        });
-                        setTransactions(prev => [...prev, ...newTx]);
-                        alert(`Importate ${newTx.length} transazioni.`);
-                    }
-                });
-                e.target.value = ''; // Reset input
-            };
+// Import CSV TeamSystem → crea righe di SPESA già deducibili
+const handleImportCSV = (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!window.Papa) {
+    console.error('PapaParse non caricato');
+    setImportMessage &&
+      setImportMessage('Errore: motore import CSV non disponibile.');
+    return;
+  }
+
+  setIsImporting(true);
+  setImportMessage && setImportMessage('Import in corso...');
+
+  window.Papa.parse(file, {
+    header: true,           // usa la riga di intestazione
+    skipEmptyLines: true,
+    delimiter: ';',         // classico CSV italiano TeamSystem
+    complete: (results) => {
+      try {
+        const rows = results.data || [];
+        const newExpenses = [];
+
+        rows.forEach((row, index) => {
+          // Colonne del CSV (nomi presi dalla tua intestazione)
+          const descr =
+            row['Descrizione'] ||
+            row['DESCRIZIONE'] ||
+            row[' Descrizione'];
+
+          const saldoStr =
+            row['Saldo'] ||
+            row['Saldo '] ||
+            row[' Saldo'];
+
+          const dataBilancio =
+            row['Data bilancio'] ||
+            row['Data Bilancio'] ||
+            row[' Data bilancio'];
+
+          const amount = parseItalianNumber(saldoStr);
+
+          // scarta righe vuote o a zero
+          if (!descr || !amount || Math.abs(amount) < 0.01) return;
+
+          // per ora importiamo solo COSTI → saldo positivo
+          if (amount <= 0) return;
+
+          // Data: se c'è "Data bilancio" la trasformiamo in ISO yyyy-mm-dd
+          let isoDate = new Date().toISOString().split('T')[0];
+          if (dataBilancio && dataBilancio.includes('/')) {
+            const [day, month, year] = dataBilancio.split('/');
+            if (day && month && year) {
+              isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(
+                2,
+                '0'
+              )}`;
+            }
+          }
+
+          newExpenses.push({
+            id: Date.now() + index,
+            type: 'expense',          // le mettiamo tutte tra le spese
+            description: descr,       // descrizione conto
+            amount: amount,           // saldo già depurato della parte indeducibile
+            date: isoDate,
+            deductibility: 100,       // è già deducibile al 100% (saldo "pulito")
+            category: 'TeamSystem',   // etichetta così sai che viene da import
+            paid: true,
+          });
+        });
+
+        if (newExpenses.length === 0) {
+          setImportMessage &&
+            setImportMessage(
+              'Import completato, ma nessuna riga valida è stata trovata nel CSV.'
+            );
+        } else {
+          setTransactions((prev) => [...prev, ...newExpenses]);
+          setImportMessage &&
+            setImportMessage(
+              `Import completato: aggiunte ${newExpenses.length} righe di costo.`
+            );
+        }
+      } catch (err) {
+        console.error('Errore durante l’import CSV', err);
+        setImportMessage &&
+          setImportMessage('Errore durante la lettura del file CSV.');
+      } finally {
+        setIsImporting(false);
+        // per poter ricaricare lo stesso file più volte
+        event.target.value = '';
+      }
+    },
+    error: (err) => {
+      console.error('Errore PapaParse', err);
+      setImportMessage &&
+        setImportMessage('Errore nella lettura del file CSV.');
+      setIsImporting(false);
+      event.target.value = '';
+    },
+  });
+};
 
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -890,3 +967,4 @@
     </script>
 </body>
 </html>
+
