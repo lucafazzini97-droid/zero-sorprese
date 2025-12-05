@@ -554,208 +554,277 @@
         };
 
         const Transactions = ({ transactions, setTransactions, type }) => {
-            const [isAdding, setIsAdding] = useState(false);
-            const [formData, setFormData] = useState({
-                description: '', amount: '', date: new Date().toISOString().split('T')[0], category: 'Generale', deductibility: 100
-            });
-            const fileInputRef = useRef(null);
-            // Converte numeri "italiani" tipo 1.234,56 → 1234.56
-const parseItalianNumber = (value) => {
-  if (value == null) return 0;
-  if (typeof value === 'number') return value;
+    const [isAdding, setIsAdding] = useState(false);
+    const [formData, setFormData] = useState({
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        category: 'Generale',
+        deductibility: 100,
+    });
+    const fileInputRef = useRef(null);
 
-  const cleaned = String(value)
-    .trim()
-    .replace(/\./g, '')    // togli i punti delle migliaia
-    .replace(',', '.');    // virgola → punto
+    // stato per l'import CSV
+    const [isImporting, setIsImporting] = useState(false);
+    const [importMessage, setImportMessage] = useState('');
 
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
-};
+    // Import CSV TeamSystem → crea righe di SPESA già deducibili
+    const handleImportCSV = (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
 
-// Import CSV TeamSystem → crea righe di SPESA già deducibili
-const handleImportCSV = (event) => {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-
-  if (!window.Papa) {
-    console.error('PapaParse non caricato');
-    setImportMessage &&
-      setImportMessage('Errore: motore import CSV non disponibile.');
-    return;
-  }
-
-  setIsImporting(true);
-  setImportMessage && setImportMessage('Import in corso...');
-
-  window.Papa.parse(file, {
-    header: true,           // usa la riga di intestazione
-    skipEmptyLines: true,
-    delimiter: ';',         // classico CSV italiano TeamSystem
-    complete: (results) => {
-      try {
-        const rows = results.data || [];
-        const newExpenses = [];
-
-        rows.forEach((row, index) => {
-          // Colonne del CSV (nomi presi dalla tua intestazione)
-          const descr =
-            row['Descrizione'] ||
-            row['DESCRIZIONE'] ||
-            row[' Descrizione'];
-
-          const saldoStr =
-            row['Saldo'] ||
-            row['Saldo '] ||
-            row[' Saldo'];
-
-          const dataBilancio =
-            row['Data bilancio'] ||
-            row['Data Bilancio'] ||
-            row[' Data bilancio'];
-
-          const amount = parseItalianNumber(saldoStr);
-
-          // scarta righe vuote o a zero
-          if (!descr || !amount || Math.abs(amount) < 0.01) return;
-
-          // per ora importiamo solo COSTI → saldo positivo
-          if (amount <= 0) return;
-
-          // Data: se c'è "Data bilancio" la trasformiamo in ISO yyyy-mm-dd
-          let isoDate = new Date().toISOString().split('T')[0];
-          if (dataBilancio && dataBilancio.includes('/')) {
-            const [day, month, year] = dataBilancio.split('/');
-            if (day && month && year) {
-              isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(
-                2,
-                '0'
-              )}`;
-            }
-          }
-
-          newExpenses.push({
-            id: Date.now() + index,
-            type: 'expense',          // le mettiamo tutte tra le spese
-            description: descr,       // descrizione conto
-            amount: amount,           // saldo già depurato della parte indeducibile
-            date: isoDate,
-            deductibility: 100,       // è già deducibile al 100% (saldo "pulito")
-            category: 'TeamSystem',   // etichetta così sai che viene da import
-            paid: true,
-          });
-        });
-
-        if (newExpenses.length === 0) {
-          setImportMessage &&
-            setImportMessage(
-              'Import completato, ma nessuna riga valida è stata trovata nel CSV.'
-            );
-        } else {
-          setTransactions((prev) => [...prev, ...newExpenses]);
-          setImportMessage &&
-            setImportMessage(
-              `Import completato: aggiunte ${newExpenses.length} righe di costo.`
-            );
+        if (!window.Papa) {
+            console.error('PapaParse non caricato');
+            setImportMessage('Errore: motore import CSV non disponibile.');
+            return;
         }
-      } catch (err) {
-        console.error('Errore durante l’import CSV', err);
-        setImportMessage &&
-          setImportMessage('Errore durante la lettura del file CSV.');
-      } finally {
-        setIsImporting(false);
-        // per poter ricaricare lo stesso file più volte
-        event.target.value = '';
-      }
-    },
-    error: (err) => {
-      console.error('Errore PapaParse', err);
-      setImportMessage &&
-        setImportMessage('Errore nella lettura del file CSV.');
-      setIsImporting(false);
-      event.target.value = '';
-    },
-  });
-};
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                setTransactions(prev => [...prev, {
-                    id: Date.now(),
-                    type,
-                    description: formData.description,
-                    amount: parseFloat(formData.amount),
-                    date: formData.date,
-                    category: formData.category,
-                    deductibility: parseInt(formData.deductibility)
-                }]);
-                setIsAdding(false);
-                setFormData({ description: '', amount: '', date: new Date().toISOString().split('T')[0], category: 'Generale', deductibility: 100 });
-            };
+        setIsImporting(true);
+        setImportMessage('Import in corso...');
 
-            const filtered = transactions.filter(t => t.type === type).sort((a,b) => new Date(b.date) - new Date(a.date));
+        window.Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            delimiter: ';',
+            complete: (results) => {
+                try {
+                    const rows = results.data || [];
+                    const newExpenses = [];
 
-            return (
-                <div className="pb-20 animate-fade-in">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-slate-900">Gestione {type === 'income' ? 'Ricavi' : 'Spese'}</h2>
-                        <div className="flex gap-2">
-                            <input type="file" ref={fileInputRef} onChange={handleImportCSV} accept=".csv" className="hidden" />
-                            <Button variant="secondary" onClick={() => fileInputRef.current.click()} icon={Icons.FileUp} className="hidden sm:flex">
-                                Importa CSV
-                            </Button>
-                            <Button onClick={() => setIsAdding(!isAdding)} icon={Icons.Plus}>
-                                Nuova
-                            </Button>
-                        </div>
-                    </div>
+                    rows.forEach((row, index) => {
+                        // nomi colonne presi dalla tua intestazione
+                        const descr =
+                            row['Descrizione'] ||
+                            row['DESCRIZIONE'] ||
+                            row[' Descrizione'];
 
-                    {isAdding && (
-                        <Card className="mb-6 bg-slate-50 border-slate-200">
-                            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                                <input required type="date" className="p-3 rounded-xl border" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
-                                <input required placeholder="Descrizione" className="p-3 rounded-xl border md:col-span-2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-                                <input required type="number" step="0.01" placeholder="€ Importo" className="p-3 rounded-xl border" value={formData.amount} onChange={e => setFormData({...formData, amount: e.target.value})} />
-                                <Button type="submit" variant="primary">Salva</Button>
-                            </form>
-                        </Card>
+                        const saldoStr =
+                            row['Saldo'] ||
+                            row['Saldo '] ||
+                            row[' Saldo'];
+
+                        const dataBilancio =
+                            row['Data bilancio'] ||
+                            row['Data Bilancio'] ||
+                            row[' Data bilancio'];
+
+                        const amount = parseItalianNumber(saldoStr);
+
+                        // scarta righe vuote o a zero
+                        if (!descr || !amount || Math.abs(amount) < 0.01) return;
+
+                        // per ora importiamo solo COSTI → saldo positivo
+                        if (amount <= 0) return;
+
+                        // Data: se c'è "Data bilancio" la trasformiamo in ISO yyyy-mm-dd
+                        let isoDate = new Date().toISOString().split('T')[0];
+                        if (dataBilancio && dataBilancio.includes('/')) {
+                            const [day, month, year] = dataBilancio.split('/');
+                            if (day && month && year) {
+                                isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(
+                                    2,
+                                    '0'
+                                )}`;
+                            }
+                        }
+
+                        newExpenses.push({
+                            id: Date.now() + index,
+                            type: 'expense',          // tutte spese
+                            description: descr,
+                            amount: amount,           // già depurato dall’indeducibile
+                            date: isoDate,
+                            deductibility: 100,
+                            category: 'TeamSystem',
+                            paid: true,
+                        });
+                    });
+
+                    if (newExpenses.length === 0) {
+                        setImportMessage(
+                            'Import completato, ma nessuna riga valida è stata trovata nel CSV.'
+                        );
+                    } else {
+                        setTransactions((prev) => [...prev, ...newExpenses]);
+                        setImportMessage(
+                            `Import completato: aggiunte ${newExpenses.length} righe di costo.`
+                        );
+                    }
+                } catch (err) {
+                    console.error('Errore durante l’import CSV', err);
+                    setImportMessage('Errore durante la lettura del file CSV.');
+                } finally {
+                    setIsImporting(false);
+                    event.target.value = '';
+                }
+            },
+            error: (err) => {
+                console.error('Errore PapaParse', err);
+                setImportMessage('Errore nella lettura del file CSV.');
+                setIsImporting(false);
+                event.target.value = '';
+            },
+        });
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        setTransactions((prev) => [
+            ...prev,
+            {
+                id: Date.now(),
+                type,
+                description: formData.description,
+                amount: parseFloat(formData.amount),
+                date: formData.date,
+                category: formData.category,
+                deductibility: parseInt(formData.deductibility),
+            },
+        ]);
+        setIsAdding(false);
+        setFormData({
+            description: '',
+            amount: '',
+            date: new Date().toISOString().split('T')[0],
+            category: 'Generale',
+            deductibility: 100,
+        });
+    };
+
+    const filtered = transactions
+        .filter((t) => t.type === type)
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return (
+        <div className="pb-20 animate-fade-in">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-slate-900">
+                    Gestione {type === 'income' ? 'Ricavi' : 'Spese'}
+                </h2>
+                <div className="flex gap-2">
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImportCSV}
+                        accept=".csv"
+                        className="hidden"
+                    />
+                    {/* Import CSV solo per le spese, per ora */}
+                    {type === 'expense' && (
+                        <Button
+                            variant="secondary"
+                            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                            icon={Icons.FileUp}
+                            disabled={isImporting}
+                            className="hidden sm:flex"
+                        >
+                            {isImporting ? 'Import...' : 'Importa CSV'}
+                        </Button>
                     )}
-
-                    <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                                <tr>
-                                    <th className="p-4">Data</th>
-                                    <th className="p-4">Descrizione</th>
-                                    <th className="p-4 text-right">Importo</th>
-                                    <th className="p-4 w-10"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filtered.length === 0 ? (
-                                    <tr><td colSpan="4" className="p-8 text-center text-slate-400">Nessuna transazione.</td></tr>
-                                ) : (
-                                    filtered.map(tx => (
-                                        <tr key={tx.id} className="hover:bg-slate-50/50">
-                                            <td className="p-4 whitespace-nowrap text-slate-500">{new Date(tx.date).toLocaleDateString('it-IT')}</td>
-                                            <td className="p-4 font-medium text-slate-900">{tx.description}</td>
-                                            <td className={`p-4 text-right font-bold ${type === 'income' ? 'text-emerald-600' : 'text-slate-900'}`}>
-                                                {type === 'expense' ? '-' : '+'} € {formatMoney(tx.amount)}
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <button onClick={() => setTransactions(prev => prev.filter(t => t.id !== tx.id))} className="text-slate-300 hover:text-rose-500 transition-colors">
-                                                    <Icons.Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                    <Button onClick={() => setIsAdding(!isAdding)} icon={Icons.Plus}>
+                        Nuova
+                    </Button>
                 </div>
-            );
-        };
+            </div>
+
+            {importMessage && type === 'expense' && (
+                <p className="text-xs text-slate-500 mb-4">{importMessage}</p>
+            )}
+
+            {isAdding && (
+                <Card className="mb-6 bg-slate-50 border-slate-200">
+                    <form
+                        onSubmit={handleSubmit}
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"
+                    >
+                        <input
+                            required
+                            type="date"
+                            className="p-3 rounded-xl border"
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        />
+                        <input
+                            required
+                            placeholder="Descrizione"
+                            className="p-3 rounded-xl border md:col-span-2"
+                            value={formData.description}
+                            onChange={(e) =>
+                                setFormData({ ...formData, description: e.target.value })
+                            }
+                        />
+                        <input
+                            required
+                            type="number"
+                            step="0.01"
+                            placeholder="€ Importo"
+                            className="p-3 rounded-xl border"
+                            value={formData.amount}
+                            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        />
+                        <Button type="submit" variant="primary">
+                            Salva
+                        </Button>
+                    </form>
+                </Card>
+            )}
+
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                        <tr>
+                            <th className="p-4">Data</th>
+                            <th className="p-4">Descrizione</th>
+                            <th className="p-4 text-right">Importo</th>
+                            <th className="p-4 w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {filtered.length === 0 ? (
+                            <tr>
+                                <td colSpan="4" className="p-8 text-center text-slate-400">
+                                    Nessuna transazione.
+                                </td>
+                            </tr>
+                        ) : (
+                            filtered.map((tx) => (
+                                <tr key={tx.id} className="hover:bg-slate-50/50">
+                                    <td className="p-4 whitespace-nowrap text-slate-500">
+                                        {new Date(tx.date).toLocaleDateString('it-IT')}
+                                    </td>
+                                    <td className="p-4 font-medium text-slate-900">
+                                        {tx.description}
+                                    </td>
+                                    <td
+                                        className={`p-4 text-right font-bold ${
+                                            type === 'income'
+                                                ? 'text-emerald-600'
+                                                : 'text-slate-900'
+                                        }`}
+                                    >
+                                        {type === 'expense' ? '-' : '+'} € {formatMoney(tx.amount)}
+                                    </td>
+                                    <td className="p-4 text-right">
+                                        <button
+                                            onClick={() =>
+                                                setTransactions((prev) =>
+                                                    prev.filter((t) => t.id !== tx.id)
+                                                )
+                                            }
+                                            className="text-slate-300 hover:text-rose-500 transition-colors"
+                                        >
+                                            <Icons.Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
 
         const SettingsPage = ({ settings, setSettings }) => (
             <div className="max-w-xl mx-auto pb-20 animate-fade-in">
@@ -967,4 +1036,5 @@ const handleImportCSV = (event) => {
     </script>
 </body>
 </html>
+
 
