@@ -23,8 +23,9 @@
     
 <!-- 5. Lucide (Icone) - Versione Fissata Stabile e Percorso UMD Corretto -->
 <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
-
-    
+    <!-- 5bis. PapaParse per importare CSV TeamSystem -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  
     
     <!-- 6. Babel (Compilatore JSX) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -57,7 +58,7 @@
 
     <!-- CODICE APPLICAZIONE -->
     <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+      const { useState, useMemo, useEffect, useRef } = React;
         
         // Verifica caricamento Recharts
         if (!window.Recharts) {
@@ -73,6 +74,15 @@
         const formatMoney = (amount) => {
             return amount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
+        // --- HELPER PER PARSARE NUMERI ITALIANI (es. "1.967,21" → 1967.21) ---
+const parseItalianNumber = (value) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    const cleaned = String(value).trim().replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+};
+
                 // --- GENERAZIONE REPORT PDF ---
         const generatePdfReport = (data, settings) => {
             if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -857,6 +867,10 @@
                 deductibility: 100,
                 category: 'Generale'
             });
+                // Import CSV TeamSystem
+    const fileInputRef = useRef(null);
+    const [importMessage, setImportMessage] = useState('');
+
 
             const handleImportXML = () => {
                 setIsImporting(true);
@@ -875,6 +889,74 @@
                     // in futuro qui possiamo mostrare un messaggio “carino” nella UI
                 }, 1500);
             };
+    const handleImportCSV = (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        if (!window.Papa) {
+            console.error('PapaParse non caricato');
+            setImportMessage('Errore: motore import CSV non disponibile.');
+            return;
+        }
+
+        window.Papa.parse(file, {
+            header: true,          // usa la prima riga come intestazioni
+            skipEmptyLines: true,
+            complete: (results) => {
+                try {
+                    const rows = results.data || [];
+                    const newTx = [];
+
+                    rows.forEach((row, index) => {
+                        // ATTENZIONE: questi nomi devono corrispondere alle intestazioni del tuo CSV
+                        const descrizione = row['Descrizione'] || 'Voce TeamSystem';
+                        const saldoStr   = row['Saldo'];        // colonna J
+                        const dataBil    = row['Data bilanc'] || row['Data bilancio'] || '';
+
+                        const saldo = parseItalianNumber(saldoStr);
+                        if (!saldo || saldo === 0) return; // salta le righe senza movimento
+
+                        // Tipo: per la demo → positivo = costo, negativo = ricavo
+                        const tipo = saldo > 0 ? 'expense' : 'income';
+                        const importo = Math.abs(saldo);
+
+                        // Data: se nel CSV è 31/12/2024 la trasformiamo in 2024-12-31
+                        let isoDate = new Date().toISOString().split('T')[0];
+                        if (dataBil && dataBil.includes('/')) {
+                            const parts = dataBil.split('/');
+                            if (parts.length === 3) {
+                                const [gg, mm, aa] = parts;
+                                isoDate = `${aa}-${mm.padStart(2, '0')}-${gg.padStart(2, '0')}`;
+                            }
+                        }
+
+                        newTx.push({
+                            id: Date.now() + index,
+                            type: tipo,
+                            date: isoDate,
+                            description: descrizione.trim(),
+                            amount: importo,
+                            deductibility: 100,      // per ora J è già depurato dell’indeducibile
+                            category: 'TeamSystem'
+                        });
+                    });
+
+                    if (newTx.length === 0) {
+                        setImportMessage('Nessuna riga valida trovata nel CSV.');
+                    } else {
+                        setTransactions((prev) => [...prev, ...newTx]);
+                        setImportMessage(`Import completato: aggiunte ${newTx.length} voci da TeamSystem.`);
+                    }
+                } catch (err) {
+                    console.error('Errore durante il parsing CSV', err);
+                    setImportMessage('Errore durante la lettura del file.');
+                } finally {
+                    // reset input per poter ricaricare lo stesso file, se serve
+                    event.target.value = '';
+                }
+            }
+        });
+    };
 
 
             const handleOCRScan = () => {
@@ -921,23 +1003,62 @@
                 <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <h2 className="text-xl font-bold text-slate-900">Gestione {type === 'income' ? 'Ricavi' : 'Spese'}</h2>
-                    
-                    <div className="flex gap-2">
-                    {type === 'income' && (
-                        <Button onClick={handleImportXML} variant="secondary" icon={isImporting ? null : Icons.FileUp} disabled={isImporting}>
-                        {isImporting ? '...' : 'Importa XML'}
-                        </Button>
-                    )}
-                    
-                    {type === 'expense' && (
-                        <Button onClick={handleOCRScan} variant="secondary" icon={isScanning ? null : Icons.ScanLine} disabled={isScanning}>
-                        {isScanning ? 'Scan AI...' : 'Scan Scontrino'}
-                        </Button>
-                    )}
+<div className="flex gap-2 flex-wrap">
+    {type === 'income' && (
+        <Button
+            onClick={handleImportXML}
+            variant="secondary"
+            icon={isImporting ? null : Icons.FileUp}
+            disabled={isImporting}
+        >
+            {isImporting ? '...' : 'Importa XML demo'}
+        </Button>
+    )}
 
-                    <Button onClick={() => setIsAdding(!isAdding)} icon={isAdding ? null : Icons.Plus}>
-                        {isAdding ? 'Chiudi' : 'Aggiungi'}
-                    </Button>
+    {type === 'expense' && (
+        <>
+            <Button
+                onClick={handleOCRScan}
+                variant="secondary"
+                icon={isScanning ? null : Icons.ScanLine}
+                disabled={isScanning}
+            >
+                {isScanning ? 'Scan AI...' : 'Scan Scontrino demo'}
+            </Button>
+
+            {/* Nuovo bottone: IMPORT CSV TEAMSYSTEM */}
+            <Button
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                variant="secondary"
+                icon={Icons.FileUp}
+            >
+                Importa CSV TS
+            </Button>
+
+            {/* Input file nascosto per il CSV */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleImportCSV}
+            />
+        </>
+    )}
+
+    <Button onClick={() => setIsAdding(!isAdding)} icon={isAdding ? null : Icons.Plus}>
+        {isAdding ? 'Chiudi' : 'Aggiungi'}
+    </Button>
+</div>
+
+{/* Messaggio di esito import */}
+{importMessage && (
+    <p className="text-xs text-slate-500 mt-2">
+        {importMessage}
+    </p>
+)}
+                    
+
                     </div>
                 </div>
 
@@ -1694,6 +1815,7 @@ const fiscalData = useTaxCalculator(transactions, settings);
     </script>
 </body>
 </html>
+
 
 
 
