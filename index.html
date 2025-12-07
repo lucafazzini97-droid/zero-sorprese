@@ -2,7 +2,10 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
     <title>Zero Sorprese - Cruscotto Fiscale</title>
 
     <!-- 1. Stile Tailwind CSS -->
@@ -45,7 +48,6 @@
       .no-scrollbar::-webkit-scrollbar {
         display: none;
       }
-
       .no-scrollbar {
         -ms-overflow-style: none;
         scrollbar-width: none;
@@ -103,13 +105,14 @@
 
       // --- HELPER FORMATTAZIONE VALUTA ---
       const formatMoney = (amount) => {
+        if (isNaN(amount) || amount === null) return "0,00";
         return amount.toLocaleString("it-IT", {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         });
       };
 
-      // --- GENERAZIONE REPORT PDF ---
+      // --- GENERAZIONE REPORT PDF (VERSIONE BASE, NON USATA DALLA UI MA LASCIATA) ---
       const generatePdfReport = (data, settings) => {
         if (!window.jspdf || !window.jspdf.jsPDF) {
           console.error("jsPDF non è disponibile");
@@ -214,7 +217,11 @@
         doc.setFontSize(13);
         doc.setTextColor(16, 185, 129); // #10B981 (emerald)
         doc.setFont("helvetica", "bold");
-        doc.text(`Disponibile reale: € ${formatMoney(data.netIncome)}`, 14, y);
+        doc.text(
+          `Disponibile reale: € ${formatMoney(data.netIncome)}`,
+          14,
+          y
+        );
         y += 8;
 
         // RESET COLORE TESTO
@@ -233,32 +240,14 @@
       };
 
       // --- ADAPTER ICONE LUCIDE (CORRETTO E ROBUSTO) ---
-      const Icon = ({ name, size = 24, className, ...props }) => {
-        if (!window.lucide || !window.lucide.icons) return null;
-        const iconData = window.lucide.icons[name];
-        if (!iconData) return null;
-
-        const [tag, attrs, children] = iconData;
-        const safeChildren = Array.isArray(children) ? children : [];
-
-        return React.createElement("svg", {
-          ...attrs,
-          width: size,
-          height: size,
-          className: className,
+      const Icon = ({ name, size = 24, className = "", ...props }) => {
+        if (!window.lucide) return null;
+        const IconComp = window.lucide[name];
+        if (!IconComp) return null;
+        return React.createElement(IconComp, {
+          size,
+          className,
           ...props,
-          dangerouslySetInnerHTML: {
-            __html: safeChildren
-              .map((child) => {
-                if (!Array.isArray(child)) return "";
-                const [childTag, childAttrs] = child;
-                const attrString = Object.entries(childAttrs || {})
-                  .map(([k, v]) => ${k}="${v}")
-                  .join(" ");
-                return <${childTag} ${attrString} />;
-              })
-              .join(""),
-          },
         });
       };
 
@@ -347,7 +336,9 @@
       // --- COMPONENTI UI BASE ---
       const Card = ({ children, className = "", noPadding = false }) => (
         <div
-          className={bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 ${noPadding ? "" : "p-6"} ${className}}
+          className={`bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 ${
+            noPadding ? "" : "p-6"
+          } ${className}`}
         >
           {children}
         </div>
@@ -362,10 +353,11 @@
           yellow: "bg-amber-50 text-amber-700 border border-amber-100",
           black: "bg-slate-900 text-white",
         };
-
         return (
           <span
-            className={px-3 py-1 rounded-full text-xs font-semibold ${colors[color] || colors.slate}}
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+              colors[color] || colors.slate
+            }`}
           >
             {children}
           </span>
@@ -379,10 +371,10 @@
         icon,
         className = "",
         disabled = false,
+        type = "button",
       }) => {
         const baseStyle =
           "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
-
         const variants = {
           primary:
             "bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20",
@@ -395,14 +387,13 @@
           success:
             "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/20",
         };
-
         const IconComp = icon;
-
         return (
           <button
+            type={type}
             onClick={onClick}
             disabled={disabled}
-            className={${baseStyle} ${variants[variant]} ${className}}
+            className={`${baseStyle} ${variants[variant]} ${className}`}
           >
             {IconComp && <IconComp size={18} />}
             {children}
@@ -415,7 +406,6 @@
           100,
           Math.max(0, (value / max) * 100)
         );
-
         let color = "bg-slate-800";
         if (percentage > 75) color = "bg-amber-500";
         if (percentage > 90) color = "bg-rose-500";
@@ -427,18 +417,18 @@
                 {label}
               </span>
               <span
-                className={
-                  font-bold ${percentage > 90 ? "text-rose-600" : "text-slate-700"}
-                }
+                className={`font-bold ${
+                  percentage > 90 ? "text-rose-600" : "text-slate-700"
+                }`}
               >
                 {formatMoney(value)} / {formatMoney(max)} €
               </span>
             </div>
             <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
               <div
-                className={h-full ${color} transition-all duration-1000 ease-out rounded-full}
-                style={{ width: ${percentage}% }}
-              />
+                className={`h-full ${color} transition-all duration-1000 ease-out rounded-full`}
+                style={{ width: `${percentage}%` }}
+              ></div>
             </div>
           </div>
         );
@@ -451,7 +441,9 @@
         simulatedRevenueAdd = 0
       ) => {
         return useMemo(() => {
-          const incomes = transactions.filter((t) => t.type === "income");
+          const incomes = transactions.filter(
+            (t) => t.type === "income"
+          );
           const expenses = transactions.filter(
             (t) => t.type === "expense"
           );
@@ -459,7 +451,6 @@
           const totalRevenue =
             incomes.reduce((acc, curr) => acc + curr.amount, 0) +
             simulatedRevenueAdd;
-
           const totalExpensesReal = expenses.reduce(
             (acc, curr) => acc + curr.amount,
             0
@@ -494,8 +485,10 @@
               totalRevenue - totalDeductibleExpenses
             );
             inps = taxableIncome * (settings.aliquotaInps / 100);
-
-            const incomeAfterInps = Math.max(0, taxableIncome - inps);
+            const incomeAfterInps = Math.max(
+              0,
+              taxableIncome - inps
+            );
 
             let remainingIncome = incomeAfterInps;
             let calculatedIrpef = 0;
@@ -536,21 +529,24 @@
       // --- COMPONENTI AVANZATI ---
       const SmartAlert = ({ revenue, limit = 85000, regime }) => {
         if (regime !== "forfettario") return null;
-
         const remaining = limit - revenue;
         const isCritical = remaining < 5000;
 
         return (
           <Card
-            className={
-              border-l-[6px] ${isCritical ? "border-l-rose-500 bg-rose-50/50" : "border-l-slate-800"}
-            }
+            className={`border-l-[6px] ${
+              isCritical
+                ? "border-l-rose-500 bg-rose-50/50"
+                : "border-l-slate-800"
+            }`}
           >
             <div className="flex items-start gap-4">
               <div
-                className={
-                  p-3 rounded-xl ${isCritical ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-800"}
-                }
+                className={`p-3 rounded-xl ${
+                  isCritical
+                    ? "bg-rose-100 text-rose-600"
+                    : "bg-slate-100 text-slate-800"
+                }`}
               >
                 <Icons.AlertCircle size={24} />
               </div>
@@ -595,22 +591,22 @@
           <Card>
             <div className="flex justify-between items-center mb-6">
               <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                <Icons.Calendar className="text-slate-400" size={20} />
+                <Icons.Calendar
+                  className="text-slate-400"
+                  size={20}
+                />
                 Timeline Fiscale
               </h4>
               <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
                 Previsione
               </span>
             </div>
+
             <div className="relative space-y-6 pl-4 border-l border-dashed border-slate-200 ml-2">
               {deadlines.map((item, idx) => (
                 <div key={idx} className="relative pl-6">
-                  <div
-                    className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-white border-2 border-slate-900 ring-4 ring-slate-50"
-                  ></div>
-                  <div
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 p-3 rounded-lg hover:bg-slate-50 transition-colors"
-                  >
+                  <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-white border-2 border-slate-900 ring-4 ring-slate-50"></div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 p-3 rounded-lg hover:bg-slate-50 transition-colors">
                     <div>
                       <div className="text-xs font-bold text-slate-400 uppercase">
                         {item.fullDate}
@@ -623,9 +619,7 @@
                       <div className="font-bold text-slate-900">
                         € {formatMoney(item.amount)}
                       </div>
-                      <div
-                        className="text-[10px] text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full inline-block"
-                      >
+                      <div className="text-[10px] text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full inline-block">
                         Da accantonare
                       </div>
                     </div>
@@ -637,16 +631,16 @@
         );
       };
 
-      // --- PAGINE ---
+      // --- PAGINA DASHBOARD ---
       const Dashboard = ({ data, settings }) => {
-        const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+        const [isGeneratingReport, setIsGeneratingReport] =
+          useState(false);
 
-        // --- GENERAZIONE REPORT PDF BRANDIZZATO ---
+        // --- GENERAZIONE REPORT PDF BRANDIZZATO USATA DAL BOTTONE ---
         const handleDownloadReport = () => {
           setIsGeneratingReport(true);
 
           try {
-            // Recupero jsPDF dalla libreria UMD
             const { jsPDF } = window.jspdf || {};
             if (!jsPDF) {
               console.error(
@@ -754,7 +748,9 @@
             }
 
             doc.text(
-              `Aliquota INPS stimata: ${settings.aliquotaInps.toFixed(2)}%`,
+              `Aliquota INPS stimata: ${settings.aliquotaInps.toFixed(
+                2
+              )}%`,
               12,
               y
             );
@@ -783,15 +779,11 @@
               } else {
                 doc.setTextColor(30, 41, 59);
               }
-
               doc.text(label, rightX, ry);
               doc.setTextColor(15, 23, 42);
               doc.setFont("helvetica", "bold");
               doc.text(
-                `€ ${value.toLocaleString("it-IT", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}`,
+                `€ ${formatMoney(value)}`,
                 pageWidth - 12,
                 ry,
                 { align: "right" }
@@ -802,21 +794,21 @@
 
             addLine("Fatturato totale", data.totalRevenue, [
               16, 185, 129,
-            ]); // verde
+            ]);
             addLine("Spese registrate", data.totalExpensesReal, [
               148, 163, 184,
-            ]); // grigio
+            ]);
             addLine("Imponibile stimato", data.taxableIncome, [
               37, 99, 235,
-            ]); // blu
-            addLine("Contributi INPS", data.inps, [245, 158, 11]); // giallo
-            addLine("Imposte", data.taxes, [239, 68, 68]); // rosso
+            ]);
+            addLine("Contributi INPS", data.inps, [245, 158, 11]);
+            addLine("Imposte", data.taxes, [239, 68, 68]);
             addLine("Carico fiscale totale", data.totalTaxLoad, [
               239, 68, 68,
-            ]); // rosso
+            ]);
             addLine("Disponibile reale", data.netIncome, [
               16, 185, 129,
-            ]); // verde
+            ]);
 
             // --- CARD FINALE "Disponibile Reale" in stile Zero Sorprese ---
             let cardY = Math.max(y, ry) + 10;
@@ -841,10 +833,7 @@
             doc.setFont("helvetica", "bold");
             doc.setFontSize(16);
             doc.text(
-              `€ ${data.netIncome.toLocaleString("it-IT", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`,
+              `€ ${formatMoney(data.netIncome)}`,
               18,
               cardY + 18
             );
@@ -852,7 +841,11 @@
             doc.setFont("helvetica", "normal");
             doc.setFontSize(9);
             doc.setTextColor(52, 211, 153); // verde "safe"
-            doc.text("Safe to spend (stima indicativa)", 18, cardY + 24);
+            doc.text(
+              "Safe to spend (stima indicativa)",
+              18,
+              cardY + 24
+            );
 
             // --- NOTE FINALI ---
             const noteY = cardY + 40;
@@ -876,7 +869,11 @@
 
             doc.setTextColor(148, 163, 184);
             doc.setFontSize(7);
-            doc.text("Zero Sorprese · BU of Refisa S.r.l.", 12, 293);
+            doc.text(
+              "Zero Sorprese · BU of Refisa S.r.l.",
+              12,
+              293
+            );
             doc.text(
               `Report generato il ${dateStr}`,
               pageWidth - 12,
@@ -884,7 +881,6 @@
               { align: "right" }
             );
 
-            // Salvataggio del PDF
             doc.save(`zero-sorprese-report-${year}.pdf`);
           } catch (err) {
             console.error("Errore nella generazione del PDF:", err);
@@ -893,11 +889,22 @@
           }
         };
 
-        // ===== PARTE VISIVA DELLA DASHBOARD (UGUALE A PRIMA) =====
         const chartData = [
-          { name: "Netto", value: data.netIncome, color: "#10B981" },
-          { name: "Tasse", value: data.taxes, color: "#F43F5E" },
-          { name: "INPS", value: data.inps, color: "#F59E0B" },
+          {
+            name: "Netto",
+            value: data.netIncome,
+            color: "#10B981",
+          },
+          {
+            name: "Tasse",
+            value: data.taxes,
+            color: "#F43F5E",
+          },
+          {
+            name: "INPS",
+            value: data.inps,
+            color: "#F59E0B",
+          },
           {
             name: "Spese",
             value: data.totalExpensesReal,
@@ -914,74 +921,53 @@
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
-                <p
-                  className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1"
-                >
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
                   Fatturato
                 </p>
                 <h3 className="text-2xl font-bold text-slate-900">
                   € {formatMoney(data.totalRevenue)}
                 </h3>
-                <div
-                  className="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-flex items-center px-2 py-0.5 rounded"
-                >
-                  <Icons.TrendingUp
-                    size={12}
-                    className="mr-1"
-                  />
+                <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-flex items-center px-2 py-0.5 rounded">
+                  <Icons.TrendingUp size={12} className="mr-1" />{" "}
                   Incassato
                 </div>
               </Card>
 
               <Card>
-                <p
-                  className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1"
-                >
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
                   Stima Tasse
                 </p>
                 <h3 className="text-2xl font-bold text-rose-600">
                   € {formatMoney(data.totalTaxLoad)}
                 </h3>
-                <div
-                  className="mt-2 text-xs text-rose-600 bg-rose-50 inline-flex items-center px-2 py-0.5 rounded"
-                >
+                <div className="mt-2 text-xs text-rose-600 bg-rose-50 inline-flex items-center px-2 py-0.5 rounded">
                   <Icons.AlertCircle
                     size={12}
                     className="mr-1"
-                  />
+                  />{" "}
                   Accantona
                 </div>
               </Card>
 
-              <Card
-                className="bg-slate-900 text-white border-slate-800 relative overflow-hidden group"
-              >
+              <Card className="bg-slate-900 text-white border-slate-800 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Icons.Briefcase size={60} />
                 </div>
-                <p
-                  className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1"
-                >
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
                   Disponibile Reale
                 </p>
                 <h3 className="text-2xl font-bold text-white">
                   € {formatMoney(data.netIncome)}
                 </h3>
-                <div
-                  className="mt-2 text-xs text-emerald-400 bg-white/10 inline-flex items-center px-2 py-0.5 rounded border border-white/10"
-                >
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"
-                  ></span>
+                <div className="mt-2 text-xs text-emerald-400 bg-white/10 inline-flex items-center px-2 py-0.5 rounded border border-white/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
                   Safe to spend
                 </div>
               </Card>
 
               <Card className="flex flex-col justify-between">
                 <div>
-                  <p
-                    className="text-slate-500 text-xs font-bold uppercase tracking-wider"
-                  >
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
                     Reportistica
                   </p>
                   <h3 className="text-lg font-bold text-slate-700 mt-1">
@@ -1009,7 +995,10 @@
                     </h4>
                   </div>
                   <div className="h-72 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer
+                      width="100%"
+                      height="100%"
+                    >
                       <BarChart
                         data={chartData}
                         layout="vertical"
@@ -1067,7 +1056,10 @@
                   </div>
                 </Card>
 
-                <TaxTimeline taxes={data.taxes} inps={data.inps} />
+                <TaxTimeline
+                  taxes={data.taxes}
+                  inps={data.inps}
+                />
               </div>
 
               <div className="space-y-6">
@@ -1076,21 +1068,25 @@
                     Peso Fiscale
                   </h4>
                   <div className="h-56 w-full relative">
-                    <div
-                      className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none"
-                    >
+                    <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
                       <span className="text-3xl font-bold text-slate-900">
-                        {Math.round(
-                          (data.totalTaxLoad / data.totalRevenue) *
-                            100
-                        )}
+                        {data.totalRevenue > 0
+                          ? Math.round(
+                              (data.totalTaxLoad /
+                                data.totalRevenue) *
+                                100
+                            )
+                          : 0}
                         %
                       </span>
                       <span className="text-xs text-slate-400 uppercase">
                         Tax Rate
                       </span>
                     </div>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer
+                      width="100%"
+                      height="100%"
+                    >
                       <PieChart>
                         <Pie
                           data={[
@@ -1098,7 +1094,10 @@
                               name: "Netto",
                               value: data.netIncome,
                             },
-                            { name: "INPS", value: data.inps },
+                            {
+                              name: "INPS",
+                              value: data.inps,
+                            },
                             {
                               name: "Imposte",
                               value: data.taxes,
@@ -1127,29 +1126,21 @@
                   </div>
                   <div className="flex flex-wrap justify-center gap-3 mt-4">
                     <div className="flex items-center gap-1 text-xs text-slate-600">
-                      <span
-                        className="w-2 h-2 rounded-full bg-emerald-500"
-                      ></span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                       Netto
                     </div>
                     <div className="flex items-center gap-1 text-xs text-slate-600">
-                      <span
-                        className="w-2 h-2 rounded-full bg-amber-500"
-                      ></span>
+                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
                       INPS
                     </div>
                     <div className="flex items-center gap-1 text-xs text-slate-600">
-                      <span
-                        className="w-2 h-2 rounded-full bg-rose-500"
-                      ></span>
+                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
                       Tasse
                     </div>
                   </div>
                 </Card>
 
-                <Card
-                  className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none"
-                >
+                <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none">
                   <div className="flex gap-3">
                     <div className="bg-white/10 p-2.5 rounded-xl h-fit">
                       <Icons.Briefcase
@@ -1161,13 +1152,10 @@
                       <h5 className="font-bold text-sm">
                         Il Consiglio di Refisa
                       </h5>
-                      <p
-                        className="text-xs text-slate-300 mt-1 leading-relaxed"
-                      >
-                        "Hai un margine operativo del 68%.
-                        Considera di investire parte del netto in
-                        formazione deducibile per abbattere
-                        l'imponibile del prossimo anno."
+                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                        "Hai un margine operativo del 68%. Considera di
+                        investire parte del netto in formazione deducibile
+                        per abbattere l'imponibile del prossimo anno."
                       </p>
                     </div>
                   </div>
@@ -1178,6 +1166,7 @@
         );
       };
 
+      // --- COMPONENTE TRANSAZIONI ---
       const Transactions = ({
         transactions,
         setTransactions,
@@ -1202,14 +1191,13 @@
               type: "income",
               description: "Fattura XML #0042",
               amount:
-                Math.floor(Math.random() * 2000) + 500.55, // Aggiungo decimali per demo
+                Math.floor(Math.random() * 2000) + 500.55,
               date: new Date().toISOString().split("T")[0],
               paid: true,
               category: "Consulenza",
             };
             setTransactions((prev) => [...prev, newTx]);
             setIsImporting(false);
-            // in futuro qui possiamo mostrare un messaggio “carino” nella UI
           }, 1500);
         };
 
@@ -1236,7 +1224,10 @@
             description: formData.description,
             amount: parseFloat(formData.amount),
             date: formData.date,
-            deductibility: parseInt(formData.deductibility),
+            deductibility: parseInt(
+              formData.deductibility,
+              10
+            ),
             category: formData.category,
             paid: true,
           };
@@ -1251,7 +1242,6 @@
           });
         };
 
-        // FUNZIONE ELIMINAZIONE CORRETTA
         // FUNZIONE ELIMINAZIONE SENZA POPUP
         const deleteTx = (id) => {
           setTransactions((current) =>
@@ -1274,9 +1264,7 @@
                   <Button
                     onClick={handleImportXML}
                     variant="secondary"
-                    icon={
-                      isImporting ? null : Icons.FileUp
-                    }
+                    icon={isImporting ? null : Icons.FileUp}
                     disabled={isImporting}
                   >
                     {isImporting ? "..." : "Importa XML"}
@@ -1286,12 +1274,12 @@
                   <Button
                     onClick={handleOCRScan}
                     variant="secondary"
-                    icon={
-                      isScanning ? null : Icons.ScanLine
-                    }
+                    icon={isScanning ? null : Icons.ScanLine}
                     disabled={isScanning}
                   >
-                    {isScanning ? "Scan AI..." : "Scan Scontrino"}
+                    {isScanning
+                      ? "Scan AI..."
+                      : "Scan Scontrino"}
                   </Button>
                 )}
                 <Button
@@ -1369,9 +1357,7 @@
                       <option value="100">
                         Deducibile 100%
                       </option>
-                      <option value="50">
-                        Deducibile 50%
-                      </option>
+                      <option value="50">Deducibile 50%</option>
                       <option value="0">
                         Non Deducibile
                       </option>
@@ -1387,15 +1373,9 @@
               </Card>
             )}
 
-            <div
-              className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto no-scrollbar"
-            >
-              <table
-                className="w-full text-left text-sm text-slate-600"
-              >
-                <thead
-                  className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider"
-                >
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto no-scrollbar">
+              <table className="w-full text-left text-sm text-slate-600">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
                   <tr>
                     <th className="p-4">Data</th>
                     <th className="p-4">Descrizione</th>
@@ -1403,8 +1383,12 @@
                     {type === "expense" && (
                       <th className="p-4">Ded.</th>
                     )}
-                    <th className="p-4 text-right">Importo</th>
-                    <th className="p-4 text-center">Azioni</th>
+                    <th className="p-4 text-right">
+                      Importo
+                    </th>
+                    <th className="p-4 text-center">
+                      Azioni
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1439,24 +1423,25 @@
                         {type === "expense" && (
                           <td className="p-4">
                             <div
-                              className={
-                                w-2 h-2 rounded-full ${tx.deducibility === 100
+                              className={`w-2 h-2 rounded-full ${
+                                tx.deductibility === 100
                                   ? "bg-emerald-500"
-                                  : tx.deducibility === 50
+                                  : tx.deductibility === 50
                                   ? "bg-amber-500"
-                                  : "bg-rose-500"}
-                              }
+                                  : "bg-rose-500"
+                              }`}
                             ></div>
                           </td>
                         )}
                         <td
-                          className="p-4 md:text-right text-left font-bold whitespace-nowrap"
+                          className={`p-4 md:text-right text-left font-bold whitespace-nowrap ${
+                            type === "income"
+                              ? "text-emerald-600"
+                              : "text-slate-900"
+                          }`}
                         >
-                          ${type === "income"
-                            ? "text-emerald-600"
-                            : "text-slate-900"}}>
-                          {type === "expense" ? "-" : "+"}
-                          € {formatMoney(tx.amount)}
+                          {type === "expense" ? "-" : "+"} €{" "}
+                          {formatMoney(tx.amount)}
                         </td>
                         <td className="p-4 text-center">
                           <button
@@ -1477,6 +1462,7 @@
         );
       };
 
+      // --- SIMULATORE ---
       const Simulator = ({ currentData, settings }) => {
         const [extraRevenue, setExtraRevenue] = useState(10000);
 
@@ -1487,7 +1473,6 @@
         );
 
         let marginalTaxRate = 0;
-
         if (settings.regime === "forfettario") {
           marginalTaxRate =
             (settings.coefficienteRedditivita / 100) *
@@ -1521,9 +1506,7 @@
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <Card>
-                <label
-                  className="block text-sm font-bold text-slate-700 mb-6"
-                >
+                <label className="block text-sm font-bold text-slate-700 mb-6">
                   Se guadagnassi in più:
                 </label>
                 <div className="flex items-center gap-4 mb-4">
@@ -1538,7 +1521,7 @@
                     value={extraRevenue}
                     onChange={(e) =>
                       setExtraRevenue(
-                        parseInt(e.target.value)
+                        parseInt(e.target.value, 10)
                       )
                     }
                     className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900"
@@ -1551,28 +1534,27 @@
                   <span className="text-3xl font-bold text-slate-900">
                     € {formatMoney(extraRevenue)}
                   </span>
-                  <p
-                    className="text-xs uppercase tracking-wider text-slate-400 mt-1"
-                  >
+                  <p className="text-xs uppercase tracking-wider text-slate-400 mt-1">
                     Fatturato Extra
                   </p>
                 </div>
               </Card>
 
-              <Card
-                className="flex flex-col justify-center items-center text-center bg-emerald-50/50 border-emerald-100"
-              >
+              <Card className="flex flex-col justify-center items-center text-center bg-emerald-50/50 border-emerald-100">
                 <p className="text-slate-500 font-medium mb-2 text-sm">
                   Ti rimarrebbero in tasca:
                 </p>
                 <h3 className="text-5xl font-bold text-emerald-600">
                   € {formatMoney(extraNet)}
                 </h3>
-                <div
-                  className="mt-4 px-3 py-1 bg-white rounded-full border border-emerald-100 text-xs font-medium text-emerald-800 shadow-sm"
-                >
+                <div className="mt-4 px-3 py-1 bg-white rounded-full border border-emerald-100 text-xs font-medium text-emerald-800 shadow-sm">
                   Margine Netto:{" "}
-                  {((extraNet / extraRevenue) * 100).toFixed(1)}%
+                  {extraRevenue > 0
+                    ? ((extraNet / extraRevenue) * 100).toFixed(
+                        1
+                      )
+                    : "0.0"}
+                  %
                 </div>
               </Card>
             </div>
@@ -1580,6 +1562,7 @@
         );
       };
 
+      // --- PAGINA SETTINGS ---
       const SettingsPage = ({ settings, setSettings }) => {
         return (
           <div className="space-y-6 max-w-2xl mx-auto animate-in slide-in-from-right duration-500">
@@ -1588,11 +1571,10 @@
                 <Icons.Settings className="text-slate-400" />
                 Configurazione
               </h2>
+
               <div className="space-y-6">
                 <div>
-                  <label
-                    className="block text-sm font-bold text-slate-700 mb-3"
-                  >
+                  <label className="block text-sm font-bold text-slate-700 mb-3">
                     Regime Fiscale
                   </label>
                   <div className="flex p-1 bg-slate-100 rounded-xl">
@@ -1603,11 +1585,11 @@
                           regime: "forfettario",
                         })
                       }
-                      className={
-                        flex-1 py-3 text-sm font-bold rounded-lg transition-all ${settings.regime === "forfettario"
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+                        settings.regime === "forfettario"
                           ? "bg-white shadow-sm text-slate-900"
-                          : "text-slate-400"}
-                      }
+                          : "text-slate-400"
+                      }`}
                     >
                       Forfettario
                     </button>
@@ -1618,11 +1600,11 @@
                           regime: "ordinario",
                         })
                       }
-                      className={
-                        flex-1 py-3 text-sm font-bold rounded-lg transition-all ${settings.regime === "ordinario"
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+                        settings.regime === "ordinario"
                           ? "bg-white shadow-sm text-slate-900"
-                          : "text-slate-400"}
-                      }
+                          : "text-slate-400"
+                      }`}
                     >
                       Ordinario
                     </button>
@@ -1630,20 +1612,14 @@
                 </div>
 
                 {settings.regime === "forfettario" && (
-                  <div
-                    className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-100"
-                  >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-100">
                     <div>
-                      <label
-                        className="block text-xs font-bold text-slate-500 uppercase mb-1"
-                      >
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                         Coeff. Redditività
                       </label>
                       <input
                         type="number"
-                        value={
-                          settings.coefficienteRedditivita
-                        }
+                        value={settings.coefficienteRedditivita}
                         onChange={(e) =>
                           setSettings({
                             ...settings,
@@ -1655,9 +1631,7 @@
                       />
                     </div>
                     <div>
-                      <label
-                        className="block text-xs font-bold text-slate-500 uppercase mb-1"
-                      >
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
                         Imp. Sostitutiva
                       </label>
                       <select
@@ -1665,8 +1639,9 @@
                         onChange={(e) =>
                           setSettings({
                             ...settings,
-                            impostaSostitutiva:
-                              parseFloat(e.target.value),
+                            impostaSostitutiva: parseFloat(
+                              e.target.value
+                            ),
                           })
                         }
                         className="w-full p-2 bg-white rounded-lg border border-slate-200 focus:border-slate-900 outline-none font-mono"
@@ -1687,8 +1662,7 @@
         );
       };
 
-      // ---
-      // --- SCHERMATA AUTH (LOGIN) NUOVA VERSIONE ---
+      // --- SCHERMATA AUTH (LOGIN) ---
       const Auth = ({ onLogin }) => {
         const [isLoading, setIsLoading] = useState(false);
         const [loginSuccess, setLoginSuccess] = useState(false);
@@ -1702,18 +1676,16 @@
 
           setIsLoading(true);
 
-          // Simulazione login (qui in futuro potrai mettere Firebase o altro)
           setTimeout(() => {
             setIsLoading(false);
             setLoginSuccess(true);
 
             const user = {
               email,
-              // uso "name" perché il resto dell'app usa currentUser.name
               name: email.split("@")[0],
             };
 
-            onLogin(user); // diciamo all'app: "utente loggato"
+            onLogin(user);
           }, 800);
         };
 
@@ -1721,7 +1693,6 @@
           <div className="min-h-screen flex bg-white font-sans text-slate-900 overflow-hidden">
             {/* LATO SINISTRO - BRAND (solo desktop) */}
             <div className="hidden lg:flex lg:w-1/2 bg-slate-950 text-white flex-col justify-between p-16 relative">
-              {/* Pattern di sfondo geometrico */}
               <div className="absolute inset-0 opacity-20 pointer-events-none">
                 <svg width="100%" height="100%">
                   <pattern
@@ -1746,7 +1717,7 @@
               </div>
 
               <div className="relative z-10">
-                <Logo light={true} />
+                <Logo />
               </div>
 
               <div className="relative z-10 max-w-lg">
@@ -1756,9 +1727,7 @@
                     sotto controllo.
                   </span>
                 </h1>
-                <p
-                  className="text-slate-400 text-lg leading-relaxed mb-8"
-                >
+                <p className="text-slate-400 text-lg leading-relaxed mb-8">
                   Zero Sorprese è lo strumento professionale
                   progettato da Refisa per darti chiarezza totale su
                   tasse, scadenze e margini reali.
@@ -1781,8 +1750,8 @@
               </div>
 
               <div className="relative z-10 text-xs text-slate-600 font-mono">
-                Refisa S.r.l. ©{" "}
-                {new Date().getFullYear()} - P.IVA 12345678901
+                Refisa S.r.l. © {new Date().getFullYear()} - P.IVA
+                12345678901
               </div>
             </div>
 
@@ -1807,17 +1776,12 @@
                   onSubmit={handleLogin}
                   className="space-y-5 mt-8"
                 >
-                  {/* Email */}
                   <div>
-                    <label
-                      className="block text-xs font-bold uppercase text-slate-500 mb-1.5 ml-1"
-                    >
+                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5 ml-1">
                       Email aziendale
                     </label>
                     <div className="relative group">
-                      <div
-                        className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors"
-                      >
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors">
                         <Icon name="User" size={20} />
                       </div>
                       <input
@@ -1833,12 +1797,9 @@
                     </div>
                   </div>
 
-                  {/* Password (solo estetica per ora) */}
                   <div>
                     <div className="flex justify-between items-center mb-1.5 ml-1">
-                      <label
-                        className="block text-xs font-bold uppercase text-slate-500"
-                      >
+                      <label className="block text-xs font-bold uppercase text-slate-500">
                         Password
                       </label>
                       <a
@@ -1849,9 +1810,7 @@
                       </a>
                     </div>
                     <div className="relative group">
-                      <div
-                        className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors"
-                      >
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors">
                         <Icon name="Lock" size={20} />
                       </div>
                       <input
@@ -1867,7 +1826,6 @@
                     </div>
                   </div>
 
-                  {/* Ricordami */}
                   <div className="flex items-center">
                     <input
                       id="remember-me"
@@ -1883,7 +1841,6 @@
                     </label>
                   </div>
 
-                  {/* Bottone */}
                   <button
                     type="submit"
                     disabled={isLoading}
@@ -1895,9 +1852,7 @@
                   >
                     {isLoading ? (
                       <>
-                        <div
-                          className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"
-                        ></div>
+                        <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         <span>Verifica credenziali...</span>
                       </>
                     ) : loginSuccess ? (
@@ -1914,27 +1869,22 @@
                   </button>
                 </form>
 
-                {/* Separatore */}
                 <div className="relative py-2">
                   <div className="absolute inset-0 flex items-center">
                     <div className="w-full border-t border-slate-100"></div>
                   </div>
                   <div className="relative flex justify-center">
-                    <span
-                      className="px-4 bg-white text-xs text-slate-400 font-medium uppercase tracking-wider"
-                    >
+                    <span className="px-4 bg-white text-xs text-slate-400 font-medium uppercase tracking-wider">
                       oppure
                     </span>
                   </div>
                 </div>
 
-                {/* Pulsanti social (per ora finti) */}
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
                     className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all"
                   >
-                    {/* icona "Google style" */}
                     <svg
                       className="h-5 w-5"
                       viewBox="0 0 24 24"
@@ -1956,9 +1906,7 @@
                       viewBox="0 0 24 24"
                       fill="currentColor"
                     >
-                      <path
-                        d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12c0-5.523-4.477-10-10-10z"
-                      />
+                      <path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12c0-5.523-4.477-10-10-10z" />
                     </svg>
                     Apple
                   </button>
@@ -1975,10 +1923,7 @@
                 </p>
               </div>
 
-              {/* Footer mobile */}
-              <div
-                className="absolute bottom-4 text-[10px] text-slate-300 lg:hidden"
-              >
+              <div className="absolute bottom-4 text-[10px] text-slate-300 lg:hidden">
                 BU of REFISA
               </div>
             </div>
@@ -1986,13 +1931,17 @@
         );
       };
 
+      // --- APP PRINCIPALE ---
       const App = () => {
-        const [activeTab, setActiveTab] = useState("dashboard");
-        const [transactions, setTransactions] =
-          useState(INITIAL_TRANSACTIONS);
+        const [activeTab, setActiveTab] =
+          useState("dashboard");
+        const [transactions, setTransactions] = useState(
+          INITIAL_TRANSACTIONS
+        );
         const [settings, setSettings] =
           useState(INITIAL_SETTINGS);
-        const [currentUser, setCurrentUser] = useState(null);
+        const [currentUser, setCurrentUser] =
+          useState(null);
 
         // Carica transazioni e impostazioni (se esistono)
         useEffect(() => {
@@ -2012,8 +1961,9 @@
             }
 
             if (savedSettings) {
-              const parsedSettings =
-                JSON.parse(savedSettings);
+              const parsedSettings = JSON.parse(
+                savedSettings
+              );
               if (
                 parsedSettings &&
                 typeof parsedSettings === "object"
@@ -2069,7 +2019,7 @@
           }
         }, [settings]);
 
-        // Salva utente ogni volta che cambia
+        // Salva / pulisce utente ogni volta che cambia
         useEffect(() => {
           try {
             if (currentUser) {
@@ -2092,38 +2042,6 @@
           transactions,
           settings
         );
-
-        // Carica utente salvato (se esiste)
-        useEffect(() => {
-          try {
-            const saved =
-              localStorage.getItem("zs_current_user");
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              if (parsed && parsed.email) {
-                setCurrentUser(parsed);
-              }
-            }
-          } catch (e) {
-            console.error("Errore caricamento utente", e);
-          }
-        }, []);
-
-        // Salva / pulisce utente
-        useEffect(() => {
-          try {
-            if (currentUser) {
-              localStorage.setItem(
-                "zs_current_user",
-                JSON.stringify(currentUser)
-              );
-            } else {
-              localStorage.removeItem("zs_current_user");
-            }
-          } catch (e) {
-            console.error("Errore salvataggio utente", e);
-          }
-        }, [currentUser]);
 
         const navItems = [
           {
@@ -2178,32 +2096,29 @@
 
             <div className="flex h-screen overflow-hidden">
               {/* Sidebar Desktop */}
-              <aside
-                className="hidden md:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20"
-              >
+              <aside className="hidden md:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
                 <div className="p-8 pb-4">
                   <Logo />
                 </div>
-                <div
-                  className="px-6 text-xs text-slate-400 uppercase tracking-[0.25em] font-semibold mt-2"
-                >
+                <div className="px-6 text-xs text-slate-400 uppercase tracking-[0.25em] font-semibold mt-2">
                   Ciao,{" "}
                   <span className="text-slate-900">
                     {currentUser?.name ||
                       currentUser?.email}
                   </span>
                 </div>
-
                 <nav className="flex-1 px-4 space-y-1 mt-4">
                   {navItems.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className={
-                        w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${activeTab === item.id
-                          ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}
+                      onClick={() =>
+                        setActiveTab(item.id)
                       }
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${
+                        activeTab === item.id
+                          ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         <item.icon
@@ -2234,9 +2149,7 @@
                   >
                     Esci dall’account
                   </Button>
-                  <div
-                    className="bg-slate-50 p-4 rounded-2xl border border-slate-100"
-                  >
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="p-2 bg-white rounded-lg shadow-sm">
                         <Icons.Briefcase
@@ -2253,9 +2166,7 @@
                         </p>
                       </div>
                     </div>
-                    <div
-                      className="text-[10px] text-slate-400 leading-tight"
-                    >
+                    <div className="text-[10px] text-slate-400 leading-tight">
                       Zero Sorprese è una Business Unit dedicata ai
                       professionisti.
                     </div>
@@ -2265,52 +2176,38 @@
 
               {/* Main Content */}
               <main className="flex-1 overflow-y-auto relative">
-                <div
-                  className="p-6 lg:p-10 max-w-7xl mx-auto pb-32 lg:pb-10"
-                >
-                  <header
-                    className="flex justify-between items-end mb-10 hidden lg:flex"
-                  >
+                <div className="p-6 lg:p-10 max-w-7xl mx-auto pb-32 lg:pb-10">
+                  <header className="flex justify-between items-end mb-10 hidden lg:flex">
                     <div>
-                      <h1
-                        className="text-3xl font-bold text-slate-900 capitalize tracking-tight"
-                      >
+                      <h1 className="text-3xl font-bold text-slate-900 capitalize tracking-tight">
                         {activeTab === "dashboard"
-                          ? Bentornato, ${
+                          ? `Bentornato, ${
                               currentUser?.name ||
                               currentUser?.email
-                            }
+                            }`
                           : navItems.find(
-                              (i) => i.id === activeTab
+                              (i) =>
+                                i.id === activeTab
                             )?.label}
                       </h1>
-                      <p
-                        className="text-slate-400 text-sm mt-1 font-medium"
-                      >
+                      <p className="text-slate-400 text-sm mt-1 font-medium">
                         {activeTab === "dashboard"
                           ? "Il tuo cruscotto finanziario è aggiornato."
                           : "Gestione operativa della contabilità."}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div
-                        className="flex items-center gap-2 justify-end text-slate-400 text-xs font-bold uppercase mb-1"
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
-                        ></span>
+                      <div className="flex items-center gap-2 justify-end text-slate-400 text-xs font-bold uppercase mb-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         Live Sync
                       </div>
                       <p className="text-sm text-slate-500 font-medium">
-                        {new Date().toLocaleDateString(
-                          "it-IT",
-                          {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )}
+                        {new Date().toLocaleDateString("it-IT", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
                       </p>
                     </div>
                   </header>
@@ -2351,15 +2248,16 @@
               </main>
 
               {/* Mobile Bottom Nav */}
-              <nav
-                className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around px-2 py-3 z-40 safe-area-bottom shadow-2xl"
-              >
+              <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around px-2 py-3 z-40 safe-area-bottom shadow-2xl">
                 {navItems.map((item) => {
-                  const isActive = activeTab === item.id;
+                  const isActive =
+                    activeTab === item.id;
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setActiveTab(item.id)}
+                      onClick={() =>
+                        setActiveTab(item.id)
+                      }
                       className={`flex-1 flex flex-col items-center gap-1 rounded-2xl px-2 py-1 transition-all ${
                         isActive
                           ? "bg-slate-100 text-slate-900"
@@ -2378,9 +2276,7 @@
                         {item.label}
                       </span>
                       {isActive && (
-                        <span
-                          className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-900"
-                        />
+                        <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-900" />
                       )}
                     </button>
                   );
