@@ -953,18 +953,17 @@
                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                   <Icons.Briefcase size={60} />
                 </div>
-<Card>
-  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
-    Disponibile Reale
-  </p>
-  <h3 className="text-2xl font-bold text-slate-900">
-    € {formatMoney(data.netIncome)}
-  </h3>
-  <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-flex items-center px-2 py-0.5 rounded">
-    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
-    Safe to spend
-  </div>
-</Card>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
+                  Disponibile Reale
+                </p>
+                <h3 className="text-2xl font-bold text-black">
+                  € {formatMoney(data.netIncome)}
+                </h3>
+                <div className="mt-2 text-xs text-emerald-400 bg-white/10 inline-flex items-center px-2 py-0.5 rounded border border-white/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
+                  Safe to spend
+                </div>
+              </Card>
 
               <Card className="flex flex-col justify-between">
                 <div>
@@ -2295,4 +2294,5 @@
     </script>
   </body>
 </html>
+
 
