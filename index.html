@@ -2,70 +2,54 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-    <title>Zero Sorprese - Cruscotto Fiscale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zero Sorprese - Suite Commercialista</title>
 
     <!-- 1. Stile Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 2. React & ReactDOM (Core) -->
-    <script
-      crossorigin
-      src="https://unpkg.com/react@18/umd/react.production.min.js"
-    ></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-    ></script>
+    <!-- 2. React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-    <!-- 3. Prop-Types (Dipendenza necessaria per Recharts UMD) -->
+    <!-- 3. Prop-Types -->
     <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
 
-    <!-- 4. Recharts (Grafici) - Versione Fissata Stabile -->
+    <!-- 4. Recharts -->
     <script src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
 
-    <!-- 4.5 jsPDF (per generare il PDF brandizzato) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-    <!-- 5. Lucide (Icone) - Versione Fissata Stabile e Percorso UMD Corretto -->
+    <!-- 5. Lucide Icons -->
     <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
 
-    <!-- 6. Babel (Compilatore JSX) -->
+    <!-- 6. jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- 7. Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- Font e Configurazioni Custom -->
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap");
-
-      body {
-        font-family: "Inter", sans-serif;
-      }
-
-      /* Nascondi scrollbar brutte */
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+      body { font-family: "Inter", sans-serif; background-color: #F8F9FC; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .animate-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(10px); }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 
     <script>
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              sans: ["Inter", "sans-serif"],
-            },
+            fontFamily: { sans: ["Inter", "sans-serif"] },
             colors: {
-              slate: {
-                850: "#1e293b",
-                950: "#020617",
-              }, // Estensioni dark
+              brand: {
+                900: "#0F172A", // Slate 900
+                800: "#1E293B", // Slate 800
+                700: "#334155",
+                accent: "#10B981", // Emerald 500
+                blue: "#3B82F6",   // Blue 500
+              },
             },
           },
         },
@@ -73,259 +57,36 @@
     </script>
   </head>
 
-  <body
-    class="bg-[#F8F9FC] text-slate-900 antialiased selection:bg-slate-900 selection:text-white"
-  >
-    <!-- Root dell'applicazione React -->
-    <div id="root"></div>
+  <body class="text-slate-900 antialiased h-screen overflow-hidden flex bg-[#F8F9FC]">
+    <div id="root" class="w-full h-full"></div>
 
-    <!-- CODICE APPLICAZIONE -->
     <script type="text/babel">
-      const { useState, useMemo, useEffect } = React;
+      const { useState, useMemo, useRef, useEffect } = React;
+      const Recharts = window.Recharts || {};
+      const { PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, ResponsiveContainer, Legend } = Recharts;
 
-      // Verifica caricamento Recharts
-      if (!window.Recharts) {
-        console.error("Recharts non caricato correttamente.");
-      }
-
-      // Destrutturazione librerie globali
-      const {
-        PieChart,
-        Pie,
-        Cell,
-        BarChart,
-        Bar,
-        XAxis,
-        YAxis,
-        CartesianGrid,
-        Tooltip: RechartsTooltip,
-        ResponsiveContainer,
-        Legend,
-      } = window.Recharts;
-
-      // --- HELPER FORMATTAZIONE VALUTA ---
-      const formatMoney = (amount) => {
-        if (isNaN(amount) || amount === null) return "0,00";
-        return amount.toLocaleString("it-IT", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        });
+      // --- UTILS ---
+      const formatMoney = (val) => val?.toLocaleString("it-IT", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) || "€ 0";
+      const parseItalianNumber = (str) => {
+        if (!str) return 0;
+        const clean = str.toString().replace(/\./g, "").replace(",", ".").trim();
+        const num = parseFloat(clean);
+        return isNaN(num) ? 0 : num;
       };
 
-      // --- GENERAZIONE REPORT PDF (VERSIONE BASE, NON USATA DALLA UI MA LASCIATA) ---
-      const generatePdfReport = (data, settings) => {
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-          console.error("jsPDF non è disponibile");
-          return;
-        }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        // HEADER SCURO IN LINEA CON ZERO SORPRESE
-        doc.setFillColor(2, 6, 23); // #020617 (slate molto scuro)
-        doc.rect(0, 0, 210, 30, "F");
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.text("Zero Sorprese - Report Fiscale", 14, 18);
-
-        // SOTTO-TITOLO
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Anno ${new Date().getFullYear()}`, 14, 26);
-
-        // RESET COLORI TESTO
-        doc.setTextColor(15, 23, 42); // #0f172a
-        let y = 42;
-
-        // REGIME
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Configurazione Fiscale", 14, y);
-        y += 8;
-
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        const regimeLabel =
-          settings.regime === "forfettario"
-            ? "Regime Forfettario"
-            : "Regime Ordinario";
-        doc.text(`Regime: ${regimeLabel}`, 14, y);
-        y += 6;
-
-        if (settings.regime === "forfettario") {
-          doc.text(
-            `Coeff. Redditività: ${settings.coefficienteRedditivita}%`,
-            14,
-            y
-          );
-          y += 6;
-          doc.text(
-            `Imposta sostitutiva: ${settings.impostaSostitutiva}%`,
-            14,
-            y
-          );
-          y += 6;
-        }
-        doc.text(`Aliquota INPS stimata: ${settings.aliquotaInps}%`, 14, y);
-        y += 12;
-
-        // SEZIONE VALORI PRINCIPALI
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Sintesi Numerica", 14, y);
-        y += 8;
-
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          `Fatturato totale:       € ${formatMoney(data.totalRevenue)}`,
-          14,
-          y
-        );
-        y += 6;
-        doc.text(
-          `Spese registrate:      € ${formatMoney(data.totalExpensesReal)}`,
-          14,
-          y
-        );
-        y += 6;
-        doc.text(
-          `Imponibile stimato:    € ${formatMoney(data.taxableIncome)}`,
-          14,
-          y
-        );
-        y += 6;
-        doc.text(
-          `Contributi INPS:       € ${formatMoney(data.inps)}`,
-          14,
-          y
-        );
-        y += 6;
-        doc.text(`Imposte:               € ${formatMoney(data.taxes)}`, 14, y);
-        y += 6;
-        doc.text(
-          `Carico fiscale totale: € ${formatMoney(data.totalTaxLoad)}`,
-          14,
-          y
-        );
-        y += 10;
-
-        // DISPONIBILE REALE (IN VERDE)
-        doc.setFontSize(13);
-        doc.setTextColor(16, 185, 129); // #10B981 (emerald)
-        doc.setFont("helvetica", "bold");
-        doc.text(
-          `Disponibile reale: € ${formatMoney(data.netIncome)}`,
-          14,
-          y
-        );
-        y += 8;
-
-        // RESET COLORE TESTO
-        doc.setTextColor(148, 163, 184); // #94A3B8 messaggio di nota
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(
-          "Nota: valori indicativi basati sui dati attualmente inseriti nel cruscotto Zero Sorprese.",
-          14,
-          y
-        );
-
-        // NOME FILE
-        const todayStr = new Date().toISOString().split("T")[0];
-        doc.save(`zero-sorprese-report-${todayStr}.pdf`);
-      };
-
-      // --- ADAPTER ICONE LUCIDE (CORRETTO E ROBUSTO) ---
-      const Icon = ({ name, size = 24, className = "", ...props }) => {
+      const Icon = ({ name, size = 20, className = "" }) => {
         if (!window.lucide) return null;
-        const IconComp = window.lucide[name];
-        if (!IconComp) return null;
-        return React.createElement(IconComp, {
-          size,
-          className,
-          ...props,
-        });
+        const LucideIcon = window.lucide[name];
+        return LucideIcon ? <LucideIcon size={size} className={className} /> : null;
       };
 
-      const Icons = {
-        LayoutDashboard: (p) => <Icon name="LayoutDashboard" {...p} />,
-        TrendingUp: (p) => <Icon name="TrendingUp" {...p} />,
-        TrendingDown: (p) => <Icon name="TrendingDown" {...p} />,
-        Calculator: (p) => <Icon name="Calculator" {...p} />,
-        Settings: (p) => <Icon name="Settings" {...p} />,
-        Plus: (p) => <Icon name="Plus" {...p} />,
-        Trash2: (p) => <Icon name="Trash2" {...p} />,
-        AlertCircle: (p) => <Icon name="AlertCircle" {...p} />,
-        Building2: (p) => <Icon name="Building2" {...p} />,
-        Calendar: (p) => <Icon name="Calendar" {...p} />,
-        Download: (p) => <Icon name="Download" {...p} />,
-        ScanLine: (p) => <Icon name="ScanLine" {...p} />,
-        FileUp: (p) => <Icon name="FileUp" {...p} />,
-        Briefcase: (p) => <Icon name="Briefcase" {...p} />,
-        ChevronRight: (p) => <Icon name="ChevronRight" {...p} />,
-      };
-
-      // --- LOGO COMPONENT ---
-      const Logo = () => (
-        <div className="flex flex-col select-none">
-          <div className="font-black text-2xl tracking-tighter text-slate-900 flex items-center gap-1 leading-none">
-            <span>ZERO</span>
-            <span className="font-light">SORPRESE</span>
-          </div>
-          <div className="text-[10px] font-medium tracking-widest text-slate-400 uppercase mt-1 flex items-center gap-1">
-            <span className="w-2 h-[1px] bg-slate-400"></span>
-            BU of REFISA
-          </div>
-        </div>
-      );
-
-      // --- DATI DI ESEMPIO ---
-      const INITIAL_TRANSACTIONS = [
-        {
-          id: 1,
-          type: "income",
-          date: "2024-01-15",
-          description: "Consulenza Sviluppo Web",
-          amount: 2500,
-          paid: true,
-        },
-        {
-          id: 2,
-          type: "income",
-          date: "2024-02-10",
-          description: "Progetto E-commerce",
-          amount: 4000,
-          paid: true,
-        },
-        {
-          id: 3,
-          type: "expense",
-          date: "2024-01-20",
-          description: "Abbonamento Software",
-          amount: 120.5,
-          deductibility: 100,
-          category: "Software",
-        },
-        {
-          id: 4,
-          type: "expense",
-          date: "2024-03-05",
-          description: "Cena aziendale",
-          amount: 80.2,
-          deductibility: 50,
-          category: "Rappresentanza",
-        },
-      ];
-
+      // --- CONFIGURAZIONE DEFAULT ---
       const INITIAL_SETTINGS = {
         regime: "forfettario",
         coefficienteRedditivita: 78,
         impostaSostitutiva: 15,
-        aliquotaInps: 26.23,
+        tipoInps: "gestione_separata", // gestione_separata | artigiani | cassa
+        aliquotaInps: 26.23, // Default GS
         scaglioniIrpef: [
           { limit: 28000, rate: 23 },
           { limit: 50000, rate: 35 },
@@ -333,1967 +94,801 @@
         ],
       };
 
-      // --- COMPONENTI UI BASE ---
-      const Card = ({ children, className = "", noPadding = false }) => (
-        <div
-          className={`bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 ${
-            noPadding ? "" : "p-6"
-          } ${className}`}
-        >
-          {children}
+      // --- HOOK CALCOLO FISCALE AVANZATO ---
+      const useTaxCalculator = (financialData, settings, simRevenue = 0, simCost = 0) => {
+        return useMemo(() => {
+            if (!financialData) return { taxableIncome: 0, taxes: 0, inps: 0, netIncome: 0, totalRevenue: 0, totalCostsReal: 0, marginalRate: 0, totalRate: 0 };
+
+            const totalRevenue = financialData.totalRevenue + simRevenue;
+            const totalCostsReal = financialData.totalCosts + simCost;
+            
+            // Per simulazioni, assumiamo costi extra deducibili al 100% nel regime ordinario
+            const totalDeductibleCosts = financialData.totalDeductibleCosts + simCost;
+
+            let taxableIncome = 0;
+            let taxes = 0;
+            let inps = 0;
+            let marginalRate = 0;
+
+            // 1. Calcolo INPS
+            let inpsBase = 0;
+            if (settings.regime === "forfettario") {
+                inpsBase = totalRevenue * (settings.coefficienteRedditivita / 100);
+            } else {
+                inpsBase = Math.max(0, totalRevenue - totalDeductibleCosts);
+            }
+
+            // Logica INPS Semplificata per Tipologia
+            if (settings.tipoInps === "artigiani") {
+                // Semplificazione: Minimale + Eccedenza (Logica approssimata per dashboard)
+                const minimale = 4400; // Valore indicativo annuo
+                const soglia = 18415;
+                if (inpsBase < soglia) inps = minimale;
+                else inps = minimale + ((inpsBase - soglia) * 0.24);
+            } else {
+                // Gestione Separata o Cassa (Aliquota secca)
+                inps = inpsBase * (settings.aliquotaInps / 100);
+            }
+
+            // 2. Calcolo Tasse (IRPEF o Sostitutiva)
+            if (settings.regime === "forfettario") {
+                taxableIncome = inpsBase;
+                // Deduzione contributi versati (assumiamo quelli calcolati anno corrente per semplicità previsionale)
+                const taxBase = Math.max(0, taxableIncome - inps);
+                taxes = taxBase * (settings.impostaSostitutiva / 100);
+                marginalRate = settings.impostaSostitutiva; 
+            } else {
+                // Ordinario
+                taxableIncome = Math.max(0, totalRevenue - totalDeductibleCosts);
+                const irpefBase = Math.max(0, taxableIncome - inps); // Deduzione INPS
+                
+                let remaining = irpefBase;
+                let calculatedIrpef = 0;
+                let prevLimit = 0;
+                
+                // Calcolo a Scaglioni
+                for (let bracket of settings.scaglioniIrpef) {
+                    if (remaining <= 0) break;
+                    const amountInBracket = Math.min(remaining, bracket.limit - prevLimit);
+                    calculatedIrpef += amountInBracket * (bracket.rate / 100);
+                    
+                    // Se stiamo "toccando" questo scaglione, è la nostra marginale
+                    if (irpefBase > prevLimit) marginalRate = bracket.rate;
+                    
+                    remaining -= amountInBracket;
+                    prevLimit = bracket.limit;
+                }
+                taxes = calculatedIrpef;
+            }
+
+            const totalTaxLoad = taxes + inps;
+            const netIncome = totalRevenue - totalCostsReal - totalTaxLoad;
+            const totalRate = totalRevenue > 0 ? (totalTaxLoad / totalRevenue) * 100 : 0;
+
+            return {
+                totalRevenue,
+                totalCostsReal,
+                taxableIncome, // Imponibile Lordo
+                taxes,
+                inps,
+                totalTaxLoad,
+                netIncome,
+                marginalRate,
+                totalRate
+            };
+
+        }, [financialData, settings, simRevenue, simCost]);
+      };
+
+      // --- COMPONENTI UI ---
+
+      const Logo = ({ collapsed }) => (
+        <div className={`flex flex-col select-none ${collapsed ? 'items-center' : 'px-6 py-8'}`}>
+          <div className="font-black text-xl tracking-tighter text-slate-900 flex items-center gap-1 leading-none">
+            <span>ZERO</span>{!collapsed && <span className="font-light">SORPRESE</span>}
+          </div>
+          {!collapsed && <div className="text-[9px] font-bold tracking-widest text-slate-400 uppercase mt-1">Suite Commercialista</div>}
         </div>
       );
 
-      const Badge = ({ children, color = "slate" }) => {
-        const colors = {
-          slate: "bg-slate-100 text-slate-700",
-          green:
-            "bg-emerald-50 text-emerald-700 border border-emerald-100",
-          red: "bg-rose-50 text-rose-700 border border-rose-100",
-          yellow: "bg-amber-50 text-amber-700 border border-amber-100",
-          black: "bg-slate-900 text-white",
-        };
-        return (
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              colors[color] || colors.slate
-            }`}
-          >
-            {children}
-          </span>
-        );
-      };
-
-      const Button = ({
-        children,
-        onClick,
-        variant = "primary",
-        icon,
-        className = "",
-        disabled = false,
-        type = "button",
-      }) => {
-        const baseStyle =
-          "flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
-        const variants = {
-          primary:
-            "bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/20",
-          secondary:
-            "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300",
-          danger:
-            "bg-white text-rose-600 hover:bg-rose-50 border border-rose-100",
-          ghost:
-            "text-slate-500 hover:text-slate-900 hover:bg-slate-100",
-          success:
-            "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/20",
-        };
-        const IconComp = icon;
-        return (
-          <button
-            type={type}
+      const SidebarItem = ({ icon, label, active, onClick, disabled }) => (
+        <button 
             onClick={onClick}
             disabled={disabled}
-            className={`${baseStyle} ${variants[variant]} ${className}`}
-          >
-            {IconComp && <IconComp size={18} />}
-            {children}
-          </button>
-        );
-      };
-
-      const ProgressBar = ({ value, max, label }) => {
-        const percentage = Math.min(
-          100,
-          Math.max(0, (value / max) * 100)
-        );
-        let color = "bg-slate-800";
-        if (percentage > 75) color = "bg-amber-500";
-        if (percentage > 90) color = "bg-rose-500";
-
-        return (
-          <div className="w-full">
-            <div className="flex justify-between text-xs mb-2">
-              <span className="font-medium text-slate-500">
-                {label}
-              </span>
-              <span
-                className={`font-bold ${
-                  percentage > 90 ? "text-rose-600" : "text-slate-700"
-                }`}
-              >
-                {formatMoney(value)} / {formatMoney(max)} €
-              </span>
-            </div>
-            <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${color} transition-all duration-1000 ease-out rounded-full`}
-                style={{ width: `${percentage}%` }}
-              ></div>
-            </div>
-          </div>
-        );
-      };
-
-      // --- HOOK LOGICA ---
-      const useTaxCalculator = (
-        transactions,
-        settings,
-        simulatedRevenueAdd = 0
-      ) => {
-        return useMemo(() => {
-          const incomes = transactions.filter(
-            (t) => t.type === "income"
-          );
-          const expenses = transactions.filter(
-            (t) => t.type === "expense"
-          );
-
-          const totalRevenue =
-            incomes.reduce((acc, curr) => acc + curr.amount, 0) +
-            simulatedRevenueAdd;
-          const totalExpensesReal = expenses.reduce(
-            (acc, curr) => acc + curr.amount,
-            0
-          );
-
-          let taxableIncome = 0;
-          let taxes = 0;
-          let inps = 0;
-          let totalDeductibleExpenses = 0;
-
-          if (settings.regime === "forfettario") {
-            taxableIncome =
-              totalRevenue * (settings.coefficienteRedditivita / 100);
-            inps = taxableIncome * (settings.aliquotaInps / 100);
-            const imponibileNettoInps = taxableIncome - inps;
-            taxes =
-              imponibileNettoInps *
-              (settings.impostaSostitutiva / 100);
-          } else {
-            totalDeductibleExpenses = expenses.reduce(
-              (acc, curr) => {
-                const deducibility = curr.deductibility || 0;
-                return (
-                  acc + curr.amount * (deducibility / 100)
-                );
-              },
-              0
-            );
-
-            taxableIncome = Math.max(
-              0,
-              totalRevenue - totalDeductibleExpenses
-            );
-            inps = taxableIncome * (settings.aliquotaInps / 100);
-            const incomeAfterInps = Math.max(
-              0,
-              taxableIncome - inps
-            );
-
-            let remainingIncome = incomeAfterInps;
-            let calculatedIrpef = 0;
-            let previousLimit = 0;
-
-            for (let bracket of settings.scaglioniIrpef) {
-              if (remainingIncome <= 0) break;
-              const taxableInThisBracket = Math.min(
-                remainingIncome,
-                bracket.limit - previousLimit
-              );
-              calculatedIrpef +=
-                taxableInThisBracket * (bracket.rate / 100);
-              remainingIncome -= taxableInThisBracket;
-              previousLimit = bracket.limit;
-            }
-
-            taxes = calculatedIrpef;
-          }
-
-          const totalTaxLoad = taxes + inps;
-          const netIncome =
-            totalRevenue - totalExpensesReal - totalTaxLoad;
-
-          return {
-            totalRevenue,
-            totalExpensesReal,
-            totalDeductibleExpenses,
-            taxableIncome,
-            inps,
-            taxes,
-            totalTaxLoad,
-            netIncome,
-          };
-        }, [transactions, settings, simulatedRevenueAdd]);
-      };
-
-      // --- COMPONENTI AVANZATI ---
-      const SmartAlert = ({ revenue, limit = 85000, regime }) => {
-        if (regime !== "forfettario") return null;
-        const remaining = limit - revenue;
-        const isCritical = remaining < 5000;
-
-        return (
-          <Card
-            className={`border-l-[6px] ${
-              isCritical
-                ? "border-l-rose-500 bg-rose-50/50"
-                : "border-l-slate-800"
-            }`}
-          >
-            <div className="flex items-start gap-4">
-              <div
-                className={`p-3 rounded-xl ${
-                  isCritical
-                    ? "bg-rose-100 text-rose-600"
-                    : "bg-slate-100 text-slate-800"
-                }`}
-              >
-                <Icons.AlertCircle size={24} />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-slate-900 mb-2 text-sm">
-                  {isCritical
-                    ? "Soglia Critica Raggiunta"
-                    : "Monitoraggio Forfettario"}
-                </h4>
-                <ProgressBar
-                  value={revenue}
-                  max={limit}
-                  label="Plafond Ricavi 85k"
-                />
-              </div>
-            </div>
-          </Card>
-        );
-      };
-
-      const TaxTimeline = ({ taxes, inps }) => {
-        const totalDue = taxes + inps;
-        const accontoGiugno = totalDue * 0.5;
-        const accontoNovembre = totalDue * 0.5;
-
-        const deadlines = [
-          {
-            date: "30 Giu",
-            fullDate: "30 Giugno",
-            label: "Saldo + 1° Acconto",
-            amount: accontoGiugno,
-          },
-          {
-            date: "30 Nov",
-            fullDate: "30 Novembre",
-            label: "2° Acconto",
-            amount: accontoNovembre,
-          },
-        ];
-
-        return (
-          <Card>
-            <div className="flex justify-between items-center mb-6">
-              <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                <Icons.Calendar
-                  className="text-slate-400"
-                  size={20}
-                />
-                Timeline Fiscale
-              </h4>
-              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                Previsione
-              </span>
-            </div>
-
-            <div className="relative space-y-6 pl-4 border-l border-dashed border-slate-200 ml-2">
-              {deadlines.map((item, idx) => (
-                <div key={idx} className="relative pl-6">
-                  <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-white border-2 border-slate-900 ring-4 ring-slate-50"></div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                    <div>
-                      <div className="text-xs font-bold text-slate-400 uppercase">
-                        {item.fullDate}
-                      </div>
-                      <div className="font-semibold text-slate-900">
-                        {item.label}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-slate-900">
-                        € {formatMoney(item.amount)}
-                      </div>
-                      <div className="text-[10px] text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full inline-block">
-                        Da accantonare
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        );
-      };
-
-      // --- PAGINA DASHBOARD ---
-      const Dashboard = ({ data, settings }) => {
-        const [isGeneratingReport, setIsGeneratingReport] =
-          useState(false);
-
-        // --- GENERAZIONE REPORT PDF BRANDIZZATO USATA DAL BOTTONE ---
-        const handleDownloadReport = () => {
-          setIsGeneratingReport(true);
-
-          try {
-            const { jsPDF } = window.jspdf || {};
-            if (!jsPDF) {
-              console.error(
-                "jsPDF non è caricato. Controlla lo <script> nel <head>."
-              );
-              setIsGeneratingReport(false);
-              return;
-            }
-
-            const doc = new jsPDF({
-              unit: "mm",
-              format: "a4",
-            });
-
-            const pageWidth = doc.internal.pageSize.getWidth();
-            let y = 15;
-
-            const today = new Date();
-            const year = today.getFullYear();
-            const dateStr = today.toLocaleDateString("it-IT");
-
-            // --- BANNER SCURO IN ALTO (brand Zero Sorprese) ---
-            doc.setFillColor(10, 17, 40); // sfondo tipo slate-950
-            doc.rect(0, 0, pageWidth, 35, "F");
-
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.text("ZERO SORPRESE", 12, 15);
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-            doc.text(
-              "BU of REFISA · Cruscotto Fiscale",
-              12,
-              22
-            );
-
-            doc.setFontSize(11);
-            doc.text(
-              `Report Fiscale ${year}`,
-              pageWidth - 12,
-              15,
-              { align: "right" }
-            );
-            doc.setFontSize(9);
-            doc.text(
-              `Generato il ${dateStr}`,
-              pageWidth - 12,
-              22,
-              { align: "right" }
-            );
-
-            // spostiamo il cursore sotto il banner
-            y = 42;
-
-            // --- BOX CONFIGURAZIONE FISCALE (colonna sinistra) ---
-            doc.setTextColor(30, 41, 59); // slate-800
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.text("Configurazione Fiscale", 12, y);
-            y += 3;
-
-            // lineetta sotto il titolo
-            doc.setDrawColor(148, 163, 184); // slate-400
-            doc.setLineWidth(0.4);
-            doc.line(12, y, pageWidth / 2 - 6, y);
-            y += 6;
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-
-            const regimeLabel =
-              settings.regime === "forfettario"
-                ? "Regime Forfettario"
-                : "Regime Ordinario";
-
-            doc.text(`Regime: ${regimeLabel}`, 12, y);
-            y += 6;
-
-            if (settings.regime === "forfettario") {
-              doc.text(
-                `Coeff. Redditività: ${settings.coefficienteRedditivita.toFixed(
-                  0
-                )}%`,
-                12,
-                y
-              );
-              y += 5;
-              doc.text(
-                `Imposta Sostitutiva: ${settings.impostaSostitutiva.toFixed(
-                  0
-                )}%`,
-                12,
-                y
-              );
-              y += 5;
-            } else {
-              doc.text(
-                "Regime Ordinario con scaglioni IRPEF personalizzati.",
-                12,
-                y
-              );
-              y += 5;
-            }
-
-            doc.text(
-              `Aliquota INPS stimata: ${settings.aliquotaInps.toFixed(
-                2
-              )}%`,
-              12,
-              y
-            );
-            y += 10;
-
-            // --- BOX SINTESI NUMERICA (colonna destra) ---
-            const rightX = pageWidth / 2 + 4;
-            let ry = 42;
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.text("Sintesi Numerica", rightX, ry);
-            ry += 3;
-
-            doc.setDrawColor(148, 163, 184);
-            doc.setLineWidth(0.4);
-            doc.line(rightX, ry, pageWidth - 12, ry);
-            ry += 6;
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(10);
-
-            const addLine = (label, value, color = null) => {
-              if (color) {
-                doc.setTextColor(color[0], color[1], color[2]);
-              } else {
-                doc.setTextColor(30, 41, 59);
-              }
-              doc.text(label, rightX, ry);
-              doc.setTextColor(15, 23, 42);
-              doc.setFont("helvetica", "bold");
-              doc.text(
-                `€ ${formatMoney(value)}`,
-                pageWidth - 12,
-                ry,
-                { align: "right" }
-              );
-              doc.setFont("helvetica", "normal");
-              ry += 6;
-            };
-
-            addLine("Fatturato totale", data.totalRevenue, [
-              16, 185, 129,
-            ]);
-            addLine("Spese registrate", data.totalExpensesReal, [
-              148, 163, 184,
-            ]);
-            addLine("Imponibile stimato", data.taxableIncome, [
-              37, 99, 235,
-            ]);
-            addLine("Contributi INPS", data.inps, [245, 158, 11]);
-            addLine("Imposte", data.taxes, [239, 68, 68]);
-            addLine("Carico fiscale totale", data.totalTaxLoad, [
-              239, 68, 68,
-            ]);
-            addLine("Disponibile reale", data.netIncome, [
-              16, 185, 129,
-            ]);
-
-            // --- CARD FINALE "Disponibile Reale" in stile Zero Sorprese ---
-            let cardY = Math.max(y, ry) + 10;
-
-            doc.setFillColor(15, 23, 42); // sfondo scuro
-            doc.roundedRect(
-              12,
-              cardY,
-              pageWidth - 24,
-              30,
-              3,
-              3,
-              "F"
-            );
-
-            doc.setTextColor(148, 163, 184);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.text("DISPONIBILE REALE", 18, cardY + 8);
-
-            doc.setTextColor(255, 255, 255);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(16);
-            doc.text(
-              `€ ${formatMoney(data.netIncome)}`,
-              18,
-              cardY + 18
-            );
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(52, 211, 153); // verde "safe"
-            doc.text(
-              "Safe to spend (stima indicativa)",
-              18,
-              cardY + 24
-            );
-
-            // --- NOTE FINALI ---
-            const noteY = cardY + 40;
-            doc.setTextColor(100, 116, 139); // slate-500
-            doc.setFontSize(8);
-            doc.text(
-              "Nota: valori indicativi basati sui dati attualmente inseriti nel cruscotto Zero Sorprese.",
-              12,
-              noteY
-            );
-            doc.text(
-              "Questo report non sostituisce un consulto fiscale professionale.",
-              12,
-              noteY + 4
-            );
-
-            // --- FOOTER ---
-            doc.setDrawColor(226, 232, 240);
-            doc.setLineWidth(0.3);
-            doc.line(12, 287, pageWidth - 12, 287);
-
-            doc.setTextColor(148, 163, 184);
-            doc.setFontSize(7);
-            doc.text(
-              "Zero Sorprese · BU of Refisa S.r.l.",
-              12,
-              293
-            );
-            doc.text(
-              `Report generato il ${dateStr}`,
-              pageWidth - 12,
-              293,
-              { align: "right" }
-            );
-
-            doc.save(`zero-sorprese-report-${year}.pdf`);
-          } catch (err) {
-            console.error("Errore nella generazione del PDF:", err);
-          } finally {
-            setIsGeneratingReport(false);
-          }
-        };
-
-        const chartData = [
-          {
-            name: "Netto",
-            value: data.netIncome,
-            color: "#10B981",
-          },
-          {
-            name: "Tasse",
-            value: data.taxes,
-            color: "#F43F5E",
-          },
-          {
-            name: "INPS",
-            value: data.inps,
-            color: "#F59E0B",
-          },
-          {
-            name: "Spese",
-            value: data.totalExpensesReal,
-            color: "#94A3B8",
-          },
-        ];
-
-        return (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <SmartAlert
-              revenue={data.totalRevenue}
-              regime={settings.regime}
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
-                  Fatturato
-                </p>
-                <h3 className="text-2xl font-bold text-slate-900">
-                  € {formatMoney(data.totalRevenue)}
-                </h3>
-                <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 inline-flex items-center px-2 py-0.5 rounded">
-                  <Icons.TrendingUp size={12} className="mr-1" />{" "}
-                  Incassato
-                </div>
-              </Card>
-
-              <Card>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
-                  Stima Tasse
-                </p>
-                <h3 className="text-2xl font-bold text-rose-600">
-                  € {formatMoney(data.totalTaxLoad)}
-                </h3>
-                <div className="mt-2 text-xs text-rose-600 bg-rose-50 inline-flex items-center px-2 py-0.5 rounded">
-                  <Icons.AlertCircle
-                    size={12}
-                    className="mr-1"
-                  />{" "}
-                  Accantona
-                </div>
-              </Card>
-
-              <Card className="bg-slate-900 text-white border-slate-800 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <Icons.Briefcase size={60} />
-                </div>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
-                  Disponibile Reale
-                </p>
-                <h3 className="text-2xl font-bold text-black">
-                  € {formatMoney(data.netIncome)}
-                </h3>
-                <div className="mt-2 text-xs text-emerald-400 bg-white/10 inline-flex items-center px-2 py-0.5 rounded border border-white/10">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></span>
-                  Safe to spend
-                </div>
-              </Card>
-
-              <Card className="flex flex-col justify-between">
-                <div>
-                  <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
-                    Reportistica
-                  </p>
-                  <h3 className="text-lg font-bold text-slate-700 mt-1">
-                    Report {new Date().getFullYear()}
-                  </h3>
-                </div>
-                <Button
-                  onClick={handleDownloadReport}
-                  variant="secondary"
-                  className="w-full mt-2 text-xs py-2"
-                  icon={isGeneratingReport ? null : Icons.Download}
-                  disabled={isGeneratingReport}
-                >
-                  {isGeneratingReport ? "..." : "Scarica PDF"}
-                </Button>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <Card>
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="font-bold text-slate-800">
-                      Analisi Flusso di Cassa
-                    </h4>
-                  </div>
-                  <div className="h-72 w-full">
-                    <ResponsiveContainer
-                      width="100%"
-                      height="100%"
-                    >
-                      <BarChart
-                        data={chartData}
-                        layout="vertical"
-                        margin={{
-                          top: 5,
-                          right: 30,
-                          left: 40,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          horizontal={false}
-                          stroke="#f1f5f9"
-                        />
-                        <XAxis type="number" hide />
-                        <YAxis
-                          dataKey="name"
-                          type="category"
-                          width={60}
-                          tick={{
-                            fontSize: 12,
-                            fill: "#64748b",
-                          }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <RechartsTooltip
-                          cursor={{ fill: "#f8fafc" }}
-                          contentStyle={{
-                            borderRadius: "8px",
-                            border: "none",
-                            boxShadow:
-                              "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                          }}
-                          formatter={(value) => [
-                            `€ ${formatMoney(value)}`,
-                            "Importo",
-                          ]}
-                        />
-                        <Bar
-                          dataKey="value"
-                          radius={[0, 6, 6, 0]}
-                          barSize={32}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={entry.color}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                <TaxTimeline
-                  taxes={data.taxes}
-                  inps={data.inps}
-                />
-              </div>
-
-              <div className="space-y-6">
-                <Card>
-                  <h4 className="font-bold text-slate-800 mb-4">
-                    Peso Fiscale
-                  </h4>
-                  <div className="h-56 w-full relative">
-                    <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                      <span className="text-3xl font-bold text-slate-900">
-                        {data.totalRevenue > 0
-                          ? Math.round(
-                              (data.totalTaxLoad /
-                                data.totalRevenue) *
-                                100
-                            )
-                          : 0}
-                        %
-                      </span>
-                      <span className="text-xs text-slate-400 uppercase">
-                        Tax Rate
-                      </span>
-                    </div>
-                    <ResponsiveContainer
-                      width="100%"
-                      height="100%"
-                    >
-                      <PieChart>
-                        <Pie
-                          data={[
-                            {
-                              name: "Netto",
-                              value: data.netIncome,
-                            },
-                            {
-                              name: "INPS",
-                              value: data.inps,
-                            },
-                            {
-                              name: "Imposte",
-                              value: data.taxes,
-                            },
-                            {
-                              name: "Spese",
-                              value: data.totalExpensesReal,
-                            },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={65}
-                          outerRadius={80}
-                          paddingAngle={2}
-                          dataKey="value"
-                          stroke="none"
-                        >
-                          <Cell fill="#10B981" />
-                          <Cell fill="#F59E0B" />
-                          <Cell fill="#F43F5E" />
-                          <Cell fill="#94A3B8" />
-                        </Pie>
-                        <RechartsTooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-3 mt-4">
-                    <div className="flex items-center gap-1 text-xs text-slate-600">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      Netto
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-slate-600">
-                      <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                      INPS
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-slate-600">
-                      <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                      Tasse
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-slate-900 to-slate-800 text-white border-none">
-                  <div className="flex gap-3">
-                    <div className="bg-white/10 p-2.5 rounded-xl h-fit">
-                      <Icons.Briefcase
-                        size={20}
-                        className="text-white"
-                      />
-                    </div>
-                    <div>
-                      <h5 className="font-bold text-sm">
-                        Il Consiglio di Refisa
-                      </h5>
-                      <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                        "Hai un margine operativo del 68%. Considera di
-                        investire parte del netto in formazione deducibile
-                        per abbattere l'imponibile del prossimo anno."
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      // --- COMPONENTE TRANSAZIONI ---
-      const Transactions = ({
-        transactions,
-        setTransactions,
-        type,
-      }) => {
-        const [isAdding, setIsAdding] = useState(false);
-        const [isImporting, setIsImporting] = useState(false);
-        const [isScanning, setIsScanning] = useState(false);
-        const [formData, setFormData] = useState({
-          description: "",
-          amount: "",
-          date: new Date().toISOString().split("T")[0],
-          deductibility: 100,
-          category: "Generale",
-        });
-
-        const handleImportXML = () => {
-          setIsImporting(true);
-          setTimeout(() => {
-            const newTx = {
-              id: Date.now(),
-              type: "income",
-              description: "Fattura XML #0042",
-              amount:
-                Math.floor(Math.random() * 2000) + 500.55,
-              date: new Date().toISOString().split("T")[0],
-              paid: true,
-              category: "Consulenza",
-            };
-            setTransactions((prev) => [...prev, newTx]);
-            setIsImporting(false);
-          }, 1500);
-        };
-
-        const handleOCRScan = () => {
-          setIsScanning(true);
-          setTimeout(() => {
-            setIsAdding(true);
-            setFormData({
-              description: 'Ristorante "Da Luigi"',
-              amount: "45.50",
-              date: new Date().toISOString().split("T")[0],
-              deductibility: 50,
-              category: "Rappresentanza",
-            });
-            setIsScanning(false);
-          }, 1800);
-        };
-
-        const handleSubmit = (e) => {
-          e.preventDefault();
-          const newTx = {
-            id: Date.now(),
-            type,
-            description: formData.description,
-            amount: parseFloat(formData.amount),
-            date: formData.date,
-            deductibility: parseInt(
-              formData.deductibility,
-              10
-            ),
-            category: formData.category,
-            paid: true,
-          };
-          setTransactions([...transactions, newTx]);
-          setIsAdding(false);
-          setFormData({
-            description: "",
-            amount: "",
-            date: new Date().toISOString().split("T")[0],
-            deductibility: 100,
-            category: "Generale",
-          });
-        };
-
-        // FUNZIONE ELIMINAZIONE SENZA POPUP
-        const deleteTx = (id) => {
-          setTransactions((current) =>
-            current.filter((t) => t.id !== id)
-          );
-        };
-
-        const filteredTx = transactions.filter(
-          (t) => t.type === type
-        );
-
-        return (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-xl font-bold text-slate-900">
-                Gestione {type === "income" ? "Ricavi" : "Spese"}
-              </h2>
-              <div className="flex gap-2">
-                {type === "income" && (
-                  <Button
-                    onClick={handleImportXML}
-                    variant="secondary"
-                    icon={isImporting ? null : Icons.FileUp}
-                    disabled={isImporting}
-                  >
-                    {isImporting ? "..." : "Importa XML"}
-                  </Button>
-                )}
-                {type === "expense" && (
-                  <Button
-                    onClick={handleOCRScan}
-                    variant="secondary"
-                    icon={isScanning ? null : Icons.ScanLine}
-                    disabled={isScanning}
-                  >
-                    {isScanning
-                      ? "Scan AI..."
-                      : "Scan Scontrino"}
-                  </Button>
-                )}
-                <Button
-                  onClick={() => setIsAdding(!isAdding)}
-                  icon={isAdding ? null : Icons.Plus}
-                >
-                  {isAdding ? "Chiudi" : "Aggiungi"}
-                </Button>
-              </div>
-            </div>
-
-            {isAdding && (
-              <Card className="bg-slate-50 border-slate-200">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-bold text-slate-800">
-                    Nuova Transazione
-                  </h4>
-                  {isScanning && (
-                    <Badge color="black">AI Detected</Badge>
-                  )}
-                </div>
-                <form
-                  onSubmit={handleSubmit}
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-                >
-                  <input
-                    required
-                    placeholder="Descrizione"
-                    className="p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    required
-                    type="number"
-                    placeholder="Importo €"
-                    step="0.01"
-                    className="p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        amount: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    required
-                    type="date"
-                    className="p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
-                    value={formData.date}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        date: e.target.value,
-                      })
-                    }
-                  />
-                  {type === "expense" && (
-                    <select
-                      className="p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-slate-900 outline-none transition-all"
-                      value={formData.deductibility}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          deductibility: e.target.value,
-                        })
-                      }
-                    >
-                      <option value="100">
-                        Deducibile 100%
-                      </option>
-                      <option value="50">Deducibile 50%</option>
-                      <option value="0">
-                        Non Deducibile
-                      </option>
-                    </select>
-                  )}
-                  <Button
-                    type="submit"
-                    className="md:col-span-2 lg:col-span-4"
-                  >
-                    Salva
-                  </Button>
-                </form>
-              </Card>
-            )}
-
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto no-scrollbar">
-              <table className="w-full text-left text-sm text-slate-600">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
-                  <tr>
-                    <th className="p-4">Data</th>
-                    <th className="p-4">Descrizione</th>
-                    <th className="p-4">Categoria</th>
-                    {type === "expense" && (
-                      <th className="p-4">Ded.</th>
-                    )}
-                    <th className="p-4 text-right">
-                      Importo
-                    </th>
-                    <th className="p-4 text-center">
-                      Azioni
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredTx.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="p-8 text-center text-slate-400 italic"
-                      >
-                        Nessuna transazione registrata.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredTx.map((tx) => (
-                      <tr
-                        key={tx.id}
-                        className="hover:bg-slate-50/80 transition-colors"
-                      >
-                        <td className="p-4">
-                          {new Date(
-                            tx.date
-                          ).toLocaleDateString("it-IT")}
-                        </td>
-                        <td className="p-4 font-medium text-slate-900">
-                          {tx.description}
-                        </td>
-                        <td className="p-4">
-                          <Badge color="slate">
-                            {tx.category || "Generale"}
-                          </Badge>
-                        </td>
-                        {type === "expense" && (
-                          <td className="p-4">
-                            <div
-                              className={`w-2 h-2 rounded-full ${
-                                tx.deductibility === 100
-                                  ? "bg-emerald-500"
-                                  : tx.deductibility === 50
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500"
-                              }`}
-                            ></div>
-                          </td>
-                        )}
-                        <td
-                          className={`p-4 md:text-right text-left font-bold whitespace-nowrap ${
-                            type === "income"
-                              ? "text-emerald-600"
-                              : "text-slate-900"
-                          }`}
-                        >
-                          {type === "expense" ? "-" : "+"} €{" "}
-                          {formatMoney(tx.amount)}
-                        </td>
-                        <td className="p-4 text-center">
-                          <button
-                            onClick={() => deleteTx(tx.id)}
-                            className="flex items-center justify-center w-8 h-8 mx-auto bg-rose-500 text-white rounded-lg hover:bg-rose-700 transition-colors shadow-md"
-                            title="Elimina definitivamente"
-                          >
-                            <Icons.Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      };
-
-      // --- SIMULATORE ---
-      const Simulator = ({ currentData, settings }) => {
-        const [extraRevenue, setExtraRevenue] = useState(10000);
-
-        const simulatedData = useTaxCalculator(
-          [],
-          settings,
-          currentData.totalRevenue + extraRevenue
-        );
-
-        let marginalTaxRate = 0;
-        if (settings.regime === "forfettario") {
-          marginalTaxRate =
-            (settings.coefficienteRedditivita / 100) *
-            ((settings.aliquotaInps +
-              settings.impostaSostitutiva) /
-              100) *
-            100;
-        } else {
-          marginalTaxRate = 43;
-        }
-
-        const extraNet =
-          extraRevenue * (1 - marginalTaxRate / 100);
-
-        return (
-          <div className="space-y-6 animate-in fade-in duration-500">
-            <Card className="bg-slate-900 text-white border-none overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-6 opacity-10">
-                <Icons.Calculator size={120} />
-              </div>
-              <div className="relative z-10">
-                <h2 className="text-2xl font-bold text-black">
-                  Simulatore Futuro
-                </h2>
-                <p className="text-slate-400">
-                  Proietta il tuo business. Scopri l'impatto fiscale
-                  reale.
-                </p>
-              </div>
-            </Card>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Card>
-                <label className="block text-sm font-bold text-slate-700 mb-6">
-                  Se guadagnassi in più:
-                </label>
-                <div className="flex items-center gap-4 mb-4">
-                  <span className="text-slate-400 font-mono">
-                    € 0
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100000"
-                    step="1000"
-                    value={extraRevenue}
-                    onChange={(e) =>
-                      setExtraRevenue(
-                        parseInt(e.target.value, 10)
-                      )
-                    }
-                    className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900"
-                  />
-                  <span className="text-slate-400 font-mono">
-                    € 100k
-                  </span>
-                </div>
-                <div className="text-center py-4">
-                  <span className="text-3xl font-bold text-slate-900">
-                    € {formatMoney(extraRevenue)}
-                  </span>
-                  <p className="text-xs uppercase tracking-wider text-slate-400 mt-1">
-                    Fatturato Extra
-                  </p>
-                </div>
-              </Card>
-
-              <Card className="flex flex-col justify-center items-center text-center bg-emerald-50/50 border-emerald-100">
-                <p className="text-slate-500 font-medium mb-2 text-sm">
-                  Ti rimarrebbero in tasca:
-                </p>
-                <h3 className="text-5xl font-bold text-emerald-600">
-                  € {formatMoney(extraNet)}
-                </h3>
-                <div className="mt-4 px-3 py-1 bg-white rounded-full border border-emerald-100 text-xs font-medium text-emerald-800 shadow-sm">
-                  Margine Netto:{" "}
-                  {extraRevenue > 0
-                    ? ((extraNet / extraRevenue) * 100).toFixed(
-                        1
-                      )
-                    : "0.0"}
-                  %
-                </div>
-              </Card>
-            </div>
-          </div>
-        );
-      };
-
-      // --- PAGINA SETTINGS ---
-      const SettingsPage = ({ settings, setSettings }) => {
-        return (
-          <div className="space-y-6 max-w-2xl mx-auto animate-in slide-in-from-right duration-500">
-            <Card>
-              <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <Icons.Settings className="text-slate-400" />
-                Configurazione
-              </h2>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-3">
-                    Regime Fiscale
-                  </label>
-                  <div className="flex p-1 bg-slate-100 rounded-xl">
-                    <button
-                      onClick={() =>
-                        setSettings({
-                          ...settings,
-                          regime: "forfettario",
-                        })
-                      }
-                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
-                        settings.regime === "forfettario"
-                          ? "bg-white shadow-sm text-slate-900"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      Forfettario
-                    </button>
-                    <button
-                      onClick={() =>
-                        setSettings({
-                          ...settings,
-                          regime: "ordinario",
-                        })
-                      }
-                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
-                        settings.regime === "ordinario"
-                          ? "bg-white shadow-sm text-slate-900"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      Ordinario
-                    </button>
-                  </div>
-                </div>
-
-                {settings.regime === "forfettario" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-slate-50 rounded-xl border border-slate-100">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                        Coeff. Redditività
-                      </label>
-                      <input
-                        type="number"
-                        value={settings.coefficienteRedditivita}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            coefficienteRedditivita:
-                              parseFloat(e.target.value),
-                          })
-                        }
-                        className="w-full p-2 bg-white rounded-lg border border-slate-200 focus:border-slate-900 outline-none font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                        Imp. Sostitutiva
-                      </label>
-                      <select
-                        value={settings.impostaSostitutiva}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            impostaSostitutiva: parseFloat(
-                              e.target.value
-                            ),
-                          })
-                        }
-                        className="w-full p-2 bg-white rounded-lg border border-slate-200 focus:border-slate-900 outline-none font-mono"
-                      >
-                        <option value="5">
-                          5% (Start-up)
-                        </option>
-                        <option value="15">
-                          15% (Standard)
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-        );
-      };
-
-      // --- SCHERMATA AUTH (LOGIN) ---
-      const Auth = ({ onLogin }) => {
-        const [isLoading, setIsLoading] = useState(false);
-        const [loginSuccess, setLoginSuccess] = useState(false);
-
-        const [email, setEmail] = useState("demo@zerosorprese.it");
-        const [password, setPassword] = useState("password123");
-
-        const handleLogin = (e) => {
-          e.preventDefault();
-          if (!email) return;
-
-          setIsLoading(true);
-
-          setTimeout(() => {
-            setIsLoading(false);
-            setLoginSuccess(true);
-
-            const user = {
-              email,
-              name: email.split("@")[0],
-            };
-
-            onLogin(user);
-          }, 800);
-        };
-
-        return (
-          <div className="min-h-screen flex bg-white font-sans text-slate-900 overflow-hidden">
-            {/* LATO SINISTRO - BRAND (solo desktop) */}
-            <div className="hidden lg:flex lg:w-1/2 bg-slate-950 text-white flex-col justify-between p-16 relative">
-              <div className="absolute inset-0 opacity-20 pointer-events-none">
-                <svg width="100%" height="100%">
-                  <pattern
-                    id="grid"
-                    width="40"
-                    height="40"
-                    patternUnits="userSpaceOnUse"
-                  >
-                    <path
-                      d="M 40 0 L 0 0 0 40"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="0.5"
-                    />
-                  </pattern>
-                  <rect
-                    width="100%"
-                    height="100%"
-                    fill="url(#grid)"
-                  />
-                </svg>
-              </div>
-
-              <div className="relative z-10">
-                <Logo />
-              </div>
-
-              <div className="relative z-10 max-w-lg">
-                <h1 className="text-5xl font-black mb-6 leading-tight">
-                  La tua fiscalità, <br />
-                  <span className="text-emerald-400">
-                    sotto controllo.
-                  </span>
-                </h1>
-                <p className="text-slate-400 text-lg leading-relaxed mb-8">
-                  Zero Sorprese è lo strumento professionale
-                  progettato da Refisa per darti chiarezza totale su
-                  tasse, scadenze e margini reali.
-                </p>
-
-                <div className="flex gap-4 text-sm font-semibold text-slate-300">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1 bg-emerald-500/20 rounded-full text-emerald-400">
-                      <Icon name="Check" size={14} />
-                    </div>
-                    <span>Previsionale Tasse</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="p-1 bg-emerald-500/20 rounded-full text-emerald-400">
-                      <Icon name="Check" size={14} />
-                    </div>
-                    <span>Simulatore Scenari</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative z-10 text-xs text-slate-600 font-mono">
-                Refisa S.r.l. © {new Date().getFullYear()} - P.IVA
-                12345678901
-              </div>
-            </div>
-
-            {/* LATO DESTRO - FORM LOGIN */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 lg:p-24 bg-white relative">
-              <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                {/* Logo solo su mobile */}
-                <div className="lg:hidden mb-8 text-center flex justify-center">
-                  <Logo />
-                </div>
-
-                <div className="text-center lg:text-left">
-                  <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-                    Bentornato
-                  </h2>
-                  <p className="mt-2 text-slate-500">
-                    Accedi al tuo cruscotto finanziario.
-                  </p>
-                </div>
-
-                <form
-                  onSubmit={handleLogin}
-                  className="space-y-5 mt-8"
-                >
-                  <div>
-                    <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5 ml-1">
-                      Email aziendale
-                    </label>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors">
-                        <Icon name="User" size={20} />
-                      </div>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) =>
-                          setEmail(e.target.value)
-                        }
-                        className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all font-medium"
-                        placeholder="nome@azienda.com"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5 ml-1">
-                      <label className="block text-xs font-bold uppercase text-slate-500">
-                        Password
-                      </label>
-                      <a
-                        href="#"
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-                      >
-                        Password dimenticata?
-                      </a>
-                    </div>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-slate-900 transition-colors">
-                        <Icon name="Lock" size={20} />
-                      </div>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) =>
-                          setPassword(e.target.value)
-                        }
-                        className="block w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white transition-all font-medium"
-                        placeholder="••••••••"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      id="remember-me"
-                      name="remember-me"
-                      type="checkbox"
-                      className="h-4 w-4 text-slate-900 focus:ring-slate-900 border-gray-300 rounded cursor-pointer"
-                    />
-                    <label
-                      htmlFor="remember-me"
-                      className="ml-2 block text-sm font-medium text-slate-600 cursor-pointer select-none"
-                    >
-                      Ricorda questo dispositivo
-                    </label>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className={`w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent rounded-2xl shadow-xl shadow-slate-900/10 text-sm font-bold text-white transition-all duration-200 active:scale-[0.98] ${
-                      loginSuccess
-                        ? "bg-emerald-500 hover:bg-emerald-600"
-                        : "bg-slate-900 hover:bg-slate-800"
-                    }`}
-                  >
-                    {isLoading ? (
-                      <>
-                        <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>Verifica credenziali...</span>
-                      </>
-                    ) : loginSuccess ? (
-                      <>
-                        <Icon name="Check" size={20} />
-                        <span>Accesso autorizzato</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Accedi al cruscotto</span>
-                        <Icon name="ArrowRight" size={18} />
-                      </>
-                    )}
-                  </button>
-                </form>
-
-                <div className="relative py-2">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-100"></div>
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="px-4 bg-white text-xs text-slate-400 font-medium uppercase tracking-wider">
-                      oppure
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M12.0003 20.45c4.65 0 8.35-3.8 8.35-8.45 0-.75-.05-1.45-.2-2.15h-8.15v3.95h4.75c-.3 1.45-1.35 2.75-2.8 3.55l2.6 2.05c1.6-1.5 2.6-3.8 2.6-6.6 0-.3-.05-.55-.1-1.2H23c.3 1.3.45 2.65.45 4.05 0 5.85-4.75 10.6-10.6 10.6-5.85 0-10.6-4.75-10.6-10.6S6.1503 1.4 12.0003 1.4c2.6 0 4.95.95 6.75 2.5l-2.85 2.85c-1-1-2.5-1.6-3.9-1.6-3.6 0-6.6 2.75-7.7 6.1l2.9 2.25c1.05-3.15 4.05-5.45 7.6-5.45z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                    Google
-                  </button>
-
-                  <button
-                    type="button"
-                    className="flex items-center justify-center gap-2 px-4 py-3 border border-slate-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all"
-                  >
-                    <svg
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12c0-5.523-4.477-10-10-10z" />
-                    </svg>
-                    Apple
-                  </button>
-                </div>
-
-                <p className="text-center text-xs text-slate-400 mt-6">
-                  Non hai ancora un account?{" "}
-                  <a
-                    href="#"
-                    className="font-bold text-slate-900 hover:underline"
-                  >
-                    Registra la tua P.IVA
-                  </a>
-                </p>
-              </div>
-
-              <div className="absolute bottom-4 text-[10px] text-slate-300 lg:hidden">
-                BU of REFISA
-              </div>
-            </div>
-          </div>
-        );
-      };
-
-      // --- APP PRINCIPALE ---
-      const App = () => {
-        const [activeTab, setActiveTab] =
-          useState("dashboard");
-        const [transactions, setTransactions] = useState(
-          INITIAL_TRANSACTIONS
-        );
-        const [settings, setSettings] =
-          useState(INITIAL_SETTINGS);
-        const [currentUser, setCurrentUser] =
-          useState(null);
-
-        // Carica transazioni e impostazioni (se esistono)
-        useEffect(() => {
-          try {
-            const savedTx =
-              localStorage.getItem("zs_transactions");
-            const savedSettings =
-              localStorage.getItem("zs_settings");
-            const savedUser =
-              localStorage.getItem("zs_current_user");
-
-            if (savedTx) {
-              const parsedTx = JSON.parse(savedTx);
-              if (Array.isArray(parsedTx)) {
-                setTransactions(parsedTx);
-              }
-            }
-
-            if (savedSettings) {
-              const parsedSettings = JSON.parse(
-                savedSettings
-              );
-              if (
-                parsedSettings &&
-                typeof parsedSettings === "object"
-              ) {
-                setSettings((prev) => ({
-                  ...prev,
-                  ...parsedSettings,
-                }));
-              }
-            }
-
-            if (savedUser) {
-              const parsedUser = JSON.parse(savedUser);
-              if (parsedUser && parsedUser.email) {
-                setCurrentUser(parsedUser);
-              }
-            }
-          } catch (e) {
-            console.error(
-              "Errore nel caricamento dati da localStorage",
-              e
-            );
-          }
-        }, []);
-
-        // Salva transazioni ogni volta che cambiano
-        useEffect(() => {
-          try {
-            localStorage.setItem(
-              "zs_transactions",
-              JSON.stringify(transactions)
-            );
-          } catch (e) {
-            console.error(
-              "Errore nel salvataggio transazioni",
-              e
-            );
-          }
-        }, [transactions]);
-
-        // Salva le impostazioni ogni volta che cambiano
-        useEffect(() => {
-          try {
-            localStorage.setItem(
-              "zs_settings",
-              JSON.stringify(settings)
-            );
-          } catch (e) {
-            console.error(
-              "Errore nel salvataggio impostazioni",
-              e
-            );
-          }
-        }, [settings]);
-
-        // Salva / pulisce utente ogni volta che cambia
-        useEffect(() => {
-          try {
-            if (currentUser) {
-              localStorage.setItem(
-                "zs_current_user",
-                JSON.stringify(currentUser)
-              );
-            } else {
-              localStorage.removeItem("zs_current_user");
-            }
-          } catch (e) {
-            console.error(
-              "Errore nel salvataggio utente",
-              e
-            );
-          }
-        }, [currentUser]);
-
-        const fiscalData = useTaxCalculator(
-          transactions,
-          settings
-        );
-
-        const navItems = [
-          {
-            id: "dashboard",
-            label: "Home",
-            icon: Icons.LayoutDashboard,
-          },
-          {
-            id: "income",
-            label: "Ricavi",
-            icon: Icons.TrendingUp,
-          },
-          {
-            id: "expenses",
-            label: "Spese",
-            icon: Icons.TrendingDown,
-          },
-          {
-            id: "simulator",
-            label: "Simula",
-            icon: Icons.Calculator,
-          },
-          {
-            id: "settings",
-            label: "Setup",
-            icon: Icons.Settings,
-          },
-        ];
-
-        const handleLogout = () => {
-          setCurrentUser(null);
-          setActiveTab("dashboard");
-        };
-
-        // Se non c'è utente loggato → mostra la pagina Auth
-        if (!currentUser) {
-          return <Auth onLogin={setCurrentUser} />;
-        }
-
-        return (
-          <div className="min-h-screen bg-[#F8F9FC] text-slate-900 font-sans selection:bg-slate-900 selection:text-white">
-            {/* Mobile Header */}
-            <div className="lg:hidden bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-30">
-              <Logo />
-              <button
-                className="p-2 bg-slate-100 rounded-full text-xs font-medium"
-                onClick={handleLogout}
-              >
-                Esci
-              </button>
-            </div>
-
-            <div className="flex h-screen overflow-hidden">
-              {/* Sidebar Desktop */}
-              <aside className="hidden md:flex flex-col w-72 bg-white border-r border-slate-100 h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20">
-                <div className="p-8 pb-4">
-                  <Logo />
-                </div>
-                <div className="px-6 text-xs text-slate-400 uppercase tracking-[0.25em] font-semibold mt-2">
-                  Ciao,{" "}
-                  <span className="text-slate-900">
-                    {currentUser?.name ||
-                      currentUser?.email}
-                  </span>
-                </div>
-                <nav className="flex-1 px-4 space-y-1 mt-4">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() =>
-                        setActiveTab(item.id)
-                      }
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm font-semibold transition-all group ${
-                        activeTab === item.id
-                          ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                          : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <item.icon
-                          size={20}
-                          className={
-                            activeTab === item.id
-                              ? "text-slate-300"
-                              : "text-slate-400 group-hover:text-slate-600"
-                          }
-                        />
-                        {item.label}
-                      </div>
-                      {activeTab === item.id && (
-                        <Icons.ChevronRight
-                          size={16}
-                          className="text-slate-500"
-                        />
-                      )}
-                    </button>
-                  ))}
-                </nav>
-
-                <div className="p-6 mt-auto">
-                  <Button
-                    onClick={handleLogout}
-                    variant="secondary"
-                    className="w-full text-xs justify-center mb-3"
-                  >
-                    Esci dall’account
-                  </Button>
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="p-2 bg-white rounded-lg shadow-sm">
-                        <Icons.Briefcase
-                          size={18}
-                          className="text-slate-900"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase font-bold text-slate-400">
-                          Gruppo
-                        </p>
-                        <p className="font-bold text-sm text-slate-900">
-                          Refisa S.r.l.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-slate-400 leading-tight">
-                      Zero Sorprese è una Business Unit dedicata ai
-                      professionisti.
-                    </div>
-                  </div>
-                </div>
-              </aside>
-
-              {/* Main Content */}
-              <main className="flex-1 overflow-y-auto relative">
-                <div className="p-6 lg:p-10 max-w-7xl mx-auto pb-32 lg:pb-10">
-                  <header className="flex justify-between items-end mb-10 hidden lg:flex">
-                    <div>
-                      <h1 className="text-3xl font-bold text-slate-900 capitalize tracking-tight">
-                        {activeTab === "dashboard"
-                          ? `Bentornato, ${
-                              currentUser?.name ||
-                              currentUser?.email
-                            }`
-                          : navItems.find(
-                              (i) =>
-                                i.id === activeTab
-                            )?.label}
-                      </h1>
-                      <p className="text-slate-400 text-sm mt-1 font-medium">
-                        {activeTab === "dashboard"
-                          ? "Il tuo cruscotto finanziario è aggiornato."
-                          : "Gestione operativa della contabilità."}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-2 justify-end text-slate-400 text-xs font-bold uppercase mb-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        Live Sync
-                      </div>
-                      <p className="text-sm text-slate-500 font-medium">
-                        {new Date().toLocaleDateString("it-IT", {
-                          weekday: "long",
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </p>
-                    </div>
-                  </header>
-
-                  {activeTab === "dashboard" && (
-                    <Dashboard
-                      data={fiscalData}
-                      settings={settings}
-                    />
-                  )}
-                  {activeTab === "income" && (
-                    <Transactions
-                      transactions={transactions}
-                      setTransactions={setTransactions}
-                      type="income"
-                    />
-                  )}
-                  {activeTab === "expenses" && (
-                    <Transactions
-                      transactions={transactions}
-                      setTransactions={setTransactions}
-                      type="expense"
-                    />
-                  )}
-                  {activeTab === "simulator" && (
-                    <Simulator
-                      currentData={fiscalData}
-                      settings={settings}
-                    />
-                  )}
-                  {activeTab === "settings" && (
-                    <SettingsPage
-                      settings={settings}
-                      setSettings={setSettings}
-                    />
-                  )}
-                </div>
-              </main>
-
-              {/* Mobile Bottom Nav */}
-              <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 flex justify-around px-2 py-3 z-40 safe-area-bottom shadow-2xl">
-                {navItems.map((item) => {
-                  const isActive =
-                    activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() =>
-                        setActiveTab(item.id)
-                      }
-                      className={`flex-1 flex flex-col items-center gap-1 rounded-2xl px-2 py-1 transition-all ${
-                        isActive
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      <item.icon
-                        size={22}
-                        className={
-                          isActive
-                            ? "text-slate-900"
-                            : "text-slate-400"
-                        }
-                      />
-                      <span className="text-[11px] leading-none font-medium">
-                        {item.label}
-                      </span>
-                      {isActive && (
-                        <span className="mt-0.5 w-1.5 h-1.5 rounded-full bg-slate-900" />
-                      )}
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          </div>
-        );
-      };
-
-      const root = ReactDOM.createRoot(
-        document.getElementById("root")
+            className={`w-full flex items-center gap-3 px-6 py-3.5 text-sm font-semibold transition-all duration-200 border-l-[3px] 
+            ${active 
+                ? 'bg-slate-50 border-brand-900 text-brand-900' 
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'}
+            ${disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}
+            `}
+        >
+            <Icon name={icon} size={20} className={active ? 'text-brand-900' : 'text-slate-400'} />
+            {label}
+        </button>
       );
+
+      const StatCard = ({ label, value, icon, colorClass, subValue, variant = "white" }) => (
+        <div className={`p-6 rounded-2xl shadow-sm relative overflow-hidden group hover:shadow-md transition-all h-full flex flex-col justify-between ${
+            variant === "blue" 
+            ? "bg-gradient-to-br from-blue-600 to-blue-500 text-white border-none" 
+            : "bg-white border border-slate-100"
+        }`}>
+            <div>
+                <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${variant === "white" ? colorClass : "text-white"}`}>
+                    <Icon name={icon} size={60} />
+                </div>
+                <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${variant === "blue" ? "text-blue-100" : "text-slate-500"}`}>{label}</p>
+                <h3 className={`text-2xl font-bold ${variant === "blue" ? "text-white" : "text-slate-900"}`}>{formatMoney(value)}</h3>
+            </div>
+            {subValue && (
+                <div className={`mt-2 text-xs flex items-center gap-1 ${variant === "blue" ? "text-blue-100" : "text-slate-400"}`}>
+                    {subValue}
+                </div>
+            )}
+        </div>
+      );
+
+      // Card specifica per i doppi indicatori percentuali
+      const DualStatCard = ({ label, value1, label1, value2, label2, icon, colorClass }) => (
+        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-all h-full flex flex-col justify-between">
+            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${colorClass}`}>
+                <Icon name={icon} size={60} />
+            </div>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-3">{label}</p>
+            <div className="space-y-3">
+                <div>
+                    <div className="flex justify-between items-baseline">
+                        <span className="text-2xl font-bold text-slate-900">{value1}</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-400">{label1}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full mt-1 overflow-hidden">
+                        <div className={`h-full ${colorClass.replace('text-', 'bg-')}`} style={{width: value1}}></div>
+                    </div>
+                </div>
+                <div>
+                    <div className="flex justify-between items-baseline">
+                        <span className="text-lg font-bold text-slate-700">{value2}</span>
+                        <span className="text-[10px] font-bold uppercase text-slate-400">{label2}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+      );
+
+      const MonthBadge = ({ label, isActive }) => (
+        <div className={`flex items-center justify-center py-3 px-1 rounded-xl border transition-all duration-300 ${isActive ? 'bg-emerald-50 border-emerald-200 shadow-sm scale-105' : 'bg-slate-50 border-slate-100 opacity-50 grayscale'}`}>
+            <span className={`text-xs font-bold uppercase tracking-wider ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>{label}</span>
+        </div>
+      );
+
+      const EfficiencyBar = ({ revenue, costs }) => {
+        const total = revenue || 1;
+        const costPerc = Math.min(100, (costs / total) * 100);
+        const marginPerc = Math.max(0, 100 - costPerc);
+        return (
+            <div className="w-full">
+                <div className="flex justify-between text-xs mb-2 font-medium">
+                    <span className="text-brand-900">Incidenza Costi ({costPerc.toFixed(1)}%)</span>
+                    <span className="text-brand-accent">Margine ({marginPerc.toFixed(1)}%)</span>
+                </div>
+                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                    <div className="h-full bg-brand-900" style={{ width: `${costPerc}%` }}></div>
+                    <div className="h-full bg-brand-accent" style={{ width: `${marginPerc}%` }}></div>
+                </div>
+            </div>
+        );
+      };
+
+      // ----------------------------------------------------------------------
+      // VIEWS
+      // ----------------------------------------------------------------------
+
+      // 1. LOGIN
+      const LoginView = ({ onLogin }) => {
+          const [loading, setLoading] = useState(false);
+          const handleSubmit = (e) => {
+              e.preventDefault();
+              setLoading(true);
+              setTimeout(() => { onLogin({ name: "Studio Demo" }); }, 800);
+          };
+          return (
+            <div className="min-h-screen flex w-full font-sans">
+                {/* Left Side - Brand */}
+                <div className="hidden lg:flex w-5/12 bg-slate-900 relative items-center justify-center p-12 text-white overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                    <div className="relative z-10 max-w-md">
+                        <h1 className="text-5xl font-black mb-6 leading-tight">La tua fiscalità,<br/><span className="text-emerald-400">sotto controllo.</span></h1>
+                        <p className="text-slate-400 text-lg mb-8">Zero Sorprese è la suite professionale per l'analisi predittiva e il controllo di gestione.</p>
+                        <div className="flex gap-4 text-sm font-bold text-slate-300">
+                            <span className="flex items-center gap-2"><Icon name="CheckCircle" className="text-emerald-400"/> Analisi Real-Time</span>
+                            <span className="flex items-center gap-2"><Icon name="CheckCircle" className="text-emerald-400"/> Simulatore Tasse</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Right Side - Form */}
+                <div className="w-full lg:w-7/12 bg-white flex items-center justify-center p-8 lg:p-24">
+                    <div className="w-full max-w-md animate-in">
+                        <div className="mb-10 text-center lg:text-left">
+                            <div className="lg:hidden mb-6 flex justify-center"><Logo collapsed={true}/></div>
+                            <h2 className="text-3xl font-bold text-slate-900">Bentornato</h2>
+                            <p className="text-slate-500 mt-2">Accedi alla tua area riservata.</p>
+                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Email Aziendale</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400"><Icon name="User" size={18}/></div>
+                                    <input type="email" required className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-0 transition-all font-medium" placeholder="nome@studio.it" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Password</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400"><Icon name="Lock" size={18}/></div>
+                                    <input type="password" required className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-0 transition-all font-medium" placeholder="••••••••" />
+                                </div>
+                            </div>
+                            <button disabled={loading} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-xl shadow-slate-900/10 hover:bg-slate-800 transition-all flex justify-center items-center gap-2 mt-4">
+                                {loading ? "Verifica credenziali..." : <>Accedi alla Console <Icon name="ArrowRight" size={18}/></>}
+                            </button>
+                        </form>
+                        <p className="text-center text-xs text-slate-400 mt-8">© {new Date().getFullYear()} Zero Sorprese Suite.</p>
+                    </div>
+                </div>
+            </div>
+          );
+      };
+
+      // 2. IMPORT DATI
+      const ImportView = ({ onUpload, loading, error }) => {
+        const fileInputRef = useRef(null);
+        return (
+            <div className="h-full flex flex-col items-center justify-center p-6 animate-in">
+                <div className="max-w-xl w-full bg-white p-12 rounded-3xl shadow-xl border border-slate-100 text-center relative z-10">
+                    <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-900">
+                        <Icon name="UploadCloud" size={32} />
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-900 mb-2">Importazione Dati</h2>
+                    <p className="text-slate-500 mb-8">Carica il CSV analitico (Teamsystem) per popolare il cruscotto e generare l'analisi.</p>
+                    {error && <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-medium flex gap-2 justify-center"><Icon name="AlertCircle" size={16} />{error}</div>}
+                    <div onClick={() => !loading && fileInputRef.current?.click()} className={`border-2 border-dashed rounded-2xl p-12 cursor-pointer transition-all group ${loading ? 'opacity-50' : 'hover:border-slate-900 hover:bg-slate-50 border-slate-200'}`}>
+                        {loading ? 
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="font-bold text-slate-400">Elaborazione...</p>
+                            </div> 
+                            : 
+                            <>
+                                <p className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Clicca per selezionare il file</p>
+                                <p className="text-xs text-slate-400 mt-2">Supporto .csv standard</p>
+                            </>
+                        }
+                    </div>
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={onUpload} />
+                </div>
+            </div>
+        );
+      };
+
+      // 3. HOME (CRUSCOTTO FISCALE)
+      const HomeView = ({ data, settings, taxData }) => {
+        if (!data) return <EmptyState />;
+        
+        const pieData = [
+            { name: "Netto", value: taxData.netIncome, color: "#10B981" }, // Emerald
+            { name: "Tasse", value: taxData.taxes, color: "#F43F5E" }, // Rose
+            { name: "INPS", value: taxData.inps, color: "#F59E0B" }, // Amber
+            { name: "Spese", value: taxData.totalCostsReal, color: "#94A3B8" } // Slate
+        ];
+
+        return (
+            <div className="p-8 max-w-7xl mx-auto w-full space-y-8 animate-in pb-20">
+                <div className="flex justify-between items-end">
+                    <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Situazione Fiscale: {settings.regime.toUpperCase()}</p>
+                        <h2 className="text-3xl font-black text-slate-900">Cruscotto Tasse</h2>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm font-medium text-slate-500">Dati aggiornati</p>
+                        <p className="text-xs text-emerald-600 font-bold flex items-center justify-end gap-1"><span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span> Live Sync</p>
+                    </div>
+                </div>
+
+                {/* KPI CARDS - GRID AGGIORNATA A 5 COLONNE su XL */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                    <StatCard label="Imponibile Fiscale" value={taxData.taxableIncome} icon="Scale" colorClass="text-blue-500" subValue="Base di calcolo" />
+                    <StatCard label="Stima Tasse" value={taxData.taxes} icon="Landmark" colorClass="text-rose-500" subValue={settings.regime === 'forfettario' ? 'Imposta Sostitutiva' : 'IRPEF Stiimata'} />
+                    <StatCard label="Stima INPS" value={taxData.inps} icon="PiggyBank" colorClass="text-amber-500" subValue={settings.tipoInps.replace('_', ' ').toUpperCase()} />
+                    
+                    {/* NUOVA CARD PRESSIONE FISCALE UNIFICATA */}
+                    <DualStatCard 
+                        label="Pressione Fiscale" 
+                        icon="Percent" 
+                        colorClass="text-slate-600"
+                        value1={`${taxData.totalRate.toFixed(1)}%`} 
+                        label1="Tax Rate Totale"
+                        value2={`${taxData.marginalRate}%`} 
+                        label2="Aliquota Marginale"
+                    />
+
+                    <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden flex flex-col justify-between">
+                        <div className="absolute top-0 right-0 p-4 opacity-10"><Icon name="Wallet" size={60} /></div>
+                        <div>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Disponibilità Reale</p>
+                            <h3 className="text-2xl font-bold text-white mb-1">{formatMoney(taxData.netIncome)}</h3>
+                        </div>
+                        <div className="mt-2 text-[10px] text-emerald-300 bg-white/10 w-fit px-2 py-1 rounded border border-white/10 flex items-center gap-1">
+                            <Icon name="CheckCircle" size={10} /> Netto in tasca
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Grafico Distribuzione */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col lg:col-span-1">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-bold text-slate-800">Ripartizione Incassi</h3>
+                        </div>
+                        
+                        <div className="flex-1 min-h-[250px] relative">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie data={pieData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        {pieData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                                    </Pie>
+                                    <RechartsTooltip formatter={(val) => formatMoney(val)} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className="text-xs text-slate-400 uppercase">Fatturato</span>
+                                <span className="text-lg font-bold text-slate-900">{formatMoney(taxData.totalRevenue)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Timeline Pagamenti */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm lg:col-span-2">
+                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Icon name="Calendar" size={18} className="text-slate-400"/> Scadenze Fiscali Stimate</h3>
+                        <div className="space-y-6 pl-4 border-l border-dashed border-slate-200 ml-2">
+                            <div className="relative pl-6 group">
+                                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-white border-2 border-slate-900 group-hover:bg-slate-900 transition-colors"></div>
+                                <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl transition-all hover:bg-white hover:shadow-md hover:border-slate-100 border border-transparent">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400 uppercase">30 Giugno</p>
+                                        <p className="font-bold text-slate-900">Saldo Anno Prec. + 1° Acconto</p>
+                                    </div>
+                                    <div className="text-right font-mono font-bold text-rose-600">{formatMoney(taxData.totalTaxLoad * 0.6)}</div>
+                                </div>
+                            </div>
+                            <div className="relative pl-6 group">
+                                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-white border-2 border-slate-900 group-hover:bg-slate-900 transition-colors"></div>
+                                <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl transition-all hover:bg-white hover:shadow-md hover:border-slate-100 border border-transparent">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400 uppercase">30 Novembre</p>
+                                        <p className="font-bold text-slate-900">2° Acconto</p>
+                                    </div>
+                                    <div className="text-right font-mono font-bold text-rose-600">{formatMoney(taxData.totalTaxLoad * 0.4)}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6 p-4 bg-blue-50 text-blue-800 text-xs rounded-xl flex gap-2">
+                            <Icon name="Info" size={16}/> 
+                            <span>Le scadenze sono indicative e calcolate sul totale imposte stimato. Verifica sempre con il commercialista.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+      };
+
+      // 4. ANALISI ECONOMICA (Blue Cards)
+      const AnalysisView = ({ data, onPrint }) => {
+        if (!data) return <EmptyState />;
+        
+        const topCosts = [...data.movements].filter(m => m.costo > 0).sort((a,b) => b.costo - a.costo).slice(0, 5);
+
+        return (
+            <div className="p-8 max-w-7xl mx-auto w-full space-y-8 animate-in pb-20">
+                <div className="flex justify-between items-end">
+                    <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Performance Aziendale</p>
+                        <h2 className="text-3xl font-black text-slate-900">{data.ragioneSociale}</h2>
+                    </div>
+                    <button onClick={onPrint} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-lg transition-all">
+                        <Icon name="Printer" size={16} /> Scarica Report
+                    </button>
+                </div>
+
+                {/* KPI CARDS STILE BLUE */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <StatCard label="Fatturato" value={data.totalRevenue} icon="TrendingUp" variant="blue" subValue="Valore Produzione" />
+                    <StatCard label="Costi Totali" value={data.totalCosts} icon="TrendingDown" variant="blue" subValue="Costi Produzione" />
+                    <StatCard label="Margine Operativo" value={data.netResult} icon="PieChart" variant="blue" subValue={`${data.totalRevenue > 0 ? ((data.netResult/data.totalRevenue)*100).toFixed(1) : 0}% sui ricavi`} />
+                </div>
+
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-xs font-bold text-slate-500 uppercase flex gap-2"><Icon name="Calendar" size={14}/> Mensilità</h4>
+                    </div>
+                    <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+                        {data.monthlyData.map((m, idx) => <MonthBadge key={idx} label={m.month} isActive={m.isActive} />)}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-8">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Icon name="BarChart3" size={18} className="text-slate-400"/> Trend Mensile</h3>
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={data.monthlyData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                                        <RechartsTooltip formatter={(val) => formatMoney(val)} cursor={{fill: '#f8fafc'}} />
+                                        <Bar dataKey="ricavi" fill="#10B981" radius={[4,4,0,0]} barSize={20} name="Ricavi"/>
+                                        <Bar dataKey="costi" fill="#F43F5E" radius={[4,4,0,0]} barSize={20} name="Costi"/>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Icon name="List" size={18} className="text-slate-400"/> Top 5 Costi</h3>
+                            <div className="space-y-4">
+                                {topCosts.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                                        <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">{item.desc}</span>
+                                        <div className="text-right">
+                                            <div className="font-bold text-slate-900">{formatMoney(item.costo)}</div>
+                                            <div className="text-[10px] text-slate-400">{data.totalCosts > 0 ? ((item.costo/data.totalCosts)*100).toFixed(1) : 0}%</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
+                            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><Icon name="Zap" size={18} className="text-amber-500"/> Efficienza</h3>
+                            <div className="flex-1 flex flex-col justify-center">
+                                <p className="text-sm text-slate-600 mb-6 leading-relaxed">
+                                    Questa analisi mostra quanto del tuo fatturato viene assorbito dai costi operativi e quanto rimane come margine.
+                                </p>
+                                <EfficiencyBar revenue={data.totalRevenue} costs={data.totalCosts} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+      };
+
+      // 5. SIMULATORE
+      const SimulatorView = ({ data, settings }) => {
+          if (!data) return <EmptyState />;
+          const [addRev, setAddRev] = useState(0);
+          const [addCost, setAddCost] = useState(0);
+          
+          const current = useTaxCalculator(data, settings);
+          const simulated = useTaxCalculator(data, settings, addRev, addCost);
+          const deltaNet = simulated.netIncome - current.netIncome;
+
+          return (
+            <div className="p-8 max-w-7xl mx-auto w-full space-y-8 animate-in pb-20">
+                <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
+                    <h2 className="text-3xl font-black mb-2 flex items-center gap-3"><Icon name="Play" /> Simulatore Scenari</h2>
+                    <p className="text-slate-400">Proietta il futuro: inserisci variazioni di fatturato o costi.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                        <h3 className="font-bold text-slate-800">Parametri Simulazione</h3>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Ricavi Aggiuntivi</label>
+                            <input type="number" value={addRev || ''} onChange={e => setAddRev(parseFloat(e.target.value)||0)} className="w-full text-xl font-bold p-4 bg-slate-50 rounded-xl border border-slate-200 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all" placeholder="0" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Costi Aggiuntivi</label>
+                            <input type="number" value={addCost || ''} onChange={e => setAddCost(parseFloat(e.target.value)||0)} className="w-full text-xl font-bold p-4 bg-slate-50 rounded-xl border border-slate-200 text-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all" placeholder="0" />
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col justify-center border border-slate-800">
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Nuovo Netto Stimato</p>
+                        <h3 className="text-5xl font-black mb-4">{formatMoney(simulated.netIncome)}</h3>
+                        <div className={`text-lg font-bold flex items-center gap-2 ${deltaNet >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {deltaNet > 0 ? '+' : ''}{formatMoney(deltaNet)} <span className="text-xs font-normal text-slate-500 opacity-80">rispetto ad ora</span>
+                        </div>
+                        <div className="mt-8 p-4 bg-white/5 rounded-xl border border-white/10">
+                            <p className="text-sm text-slate-300">
+                                Su una variazione di <b>{formatMoney(addRev - addCost)}</b>, pagherai circa <b>{formatMoney(simulated.totalTaxLoad - current.totalTaxLoad)}</b> di tasse in più.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          );
+      };
+
+      // 6. SETUP
+      const SettingsView = ({ settings, setSettings }) => {
+          return (
+            <div className="p-8 max-w-3xl mx-auto w-full animate-in">
+                <h2 className="text-2xl font-black text-slate-900 mb-8">Configurazione Fiscale</h2>
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-8">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-3">Regime Fiscale</label>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                            <button onClick={() => setSettings({...settings, regime: 'forfettario'})} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${settings.regime === 'forfettario' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>Forfettario</button>
+                            <button onClick={() => setSettings({...settings, regime: 'ordinario'})} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${settings.regime === 'ordinario' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}>Ordinario</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-3">Cassa Previdenziale</label>
+                        <select value={settings.tipoInps} onChange={e => setSettings({...settings, tipoInps: e.target.value})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 font-bold focus:outline-none focus:border-slate-900 transition-colors">
+                            <option value="gestione_separata">INPS Gestione Separata (Freelance)</option>
+                            <option value="artigiani">INPS Artigiani e Commercianti</option>
+                            <option value="cassa">Cassa Professionale (Albo)</option>
+                        </select>
+                    </div>
+
+                    {/* Dettagli Forfettario */}
+                    {settings.regime === 'forfettario' && (
+                        <div className="grid grid-cols-2 gap-4 animate-in">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Coeff. Redditività</label>
+                                <input type="number" value={settings.coefficienteRedditivita} onChange={e => setSettings({...settings, coefficienteRedditivita: parseFloat(e.target.value)})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 font-bold" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Imp. Sostitutiva</label>
+                                <select value={settings.impostaSostitutiva} onChange={e => setSettings({...settings, impostaSostitutiva: parseFloat(e.target.value)})} className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 font-bold">
+                                    <option value="5">5% (Start-up)</option>
+                                    <option value="15">15% (Standard)</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Informative Ordinario */}
+                    {settings.regime === 'ordinario' && (
+                        <div className="space-y-6 animate-in">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2"><Icon name="Info" size={16}/> Scaglioni IRPEF (Attuali)</h4>
+                                <div className="border border-slate-200 rounded-xl overflow-hidden text-sm">
+                                    <div className="grid grid-cols-2 bg-slate-50 p-2 font-bold text-slate-500 border-b border-slate-200">
+                                        <span>Reddito</span><span>Aliquota</span>
+                                    </div>
+                                    {settings.scaglioniIrpef.map((row, idx) => (
+                                        <div key={idx} className="grid grid-cols-2 p-2 border-b border-slate-100 last:border-0 bg-white">
+                                            <span>Fino a {row.limit === Infinity ? 'Oltre' : formatMoney(row.limit)}</span>
+                                            <span className="font-mono text-slate-900">{row.rate}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2"><Icon name="Info" size={16}/> Parametri INPS Selezionati</h4>
+                                <div className="p-4 bg-blue-50 text-blue-800 rounded-xl text-sm border border-blue-100">
+                                    Hai selezionato <b>{settings.tipoInps.replace('_', ' ').toUpperCase()}</b>. L'aliquota di calcolo stimata è del <b>{settings.aliquotaInps}%</b> {settings.tipoInps === 'artigiani' && "con calcolo minimale/eccedenza applicato"}.
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+          );
+      };
+
+      const EmptyState = () => (
+        <div className="h-full flex flex-col items-center justify-center text-slate-400 animate-in p-8 text-center">
+            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4"><Icon name="UploadCloud" size={40} className="text-slate-300"/></div>
+            <h3 className="text-lg font-bold text-slate-600">Nessun dato presente</h3>
+            <p>Vai alla sezione Importa Dati per iniziare.</p>
+        </div>
+      );
+
+      // --- APP ROOT ---
+      const App = () => {
+        const [user, setUser] = useState(null);
+        const [activeTab, setActiveTab] = useState('import');
+        const [financialData, setFinancialData] = useState(null);
+        const [settings, setSettings] = useState(INITIAL_SETTINGS);
+        
+        const taxData = useTaxCalculator(financialData, settings);
+
+        // Funzione Print "Executive"
+        const handlePrint = () => {
+            if (!financialData || !window.jspdf) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Colori & Font
+            const colorDark = [15, 23, 42]; 
+            const colorAccent = [16, 185, 129];
+            const colorDanger = [244, 63, 94];
+            
+            // --- HEADER ---
+            doc.setFillColor(...colorDark);
+            doc.rect(0, 0, 210, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24); doc.setFont("helvetica", "bold"); doc.text("ZERO", 15, 20);
+            doc.setFont("helvetica", "normal"); doc.text("SORPRESE", 50, 20);
+            doc.setFontSize(10); doc.setTextColor(...colorAccent); doc.text("REPORT ESECUTIVO DI GESTIONE", 15, 28);
+
+            // --- CLIENTE INFO ---
+            doc.setTextColor(100); doc.setFontSize(10); doc.text(`Cliente:`, 15, 50);
+            doc.setTextColor(...colorDark); doc.setFont("helvetica", "bold"); doc.text(financialData.ragioneSociale, 35, 50);
+            doc.setFont("helvetica", "normal"); doc.setTextColor(100); doc.text(`Data: ${new Date().toLocaleDateString()}`, 150, 50);
+
+            // --- KPI BOXES (Disegnati) ---
+            const drawBox = (x, title, value, color) => {
+                doc.setDrawColor(200); doc.setFillColor(250); doc.roundedRect(x, 60, 55, 25, 2, 2, 'FD');
+                doc.setFontSize(8); doc.setTextColor(100); doc.text(title.toUpperCase(), x+5, 68);
+                doc.setFontSize(14); doc.setTextColor(...color); doc.setFont("helvetica", "bold"); doc.text(formatMoney(value), x+5, 78);
+            };
+            drawBox(15, "Fatturato", financialData.totalRevenue, colorDark);
+            drawBox(75, "Margine Op.", financialData.netResult, colorAccent);
+            drawBox(135, "Utile Fiscale", financialData.taxableIncome, colorDark);
+
+            // --- CONTO ECONOMICO RICLASSIFICATO ---
+            doc.autoTable({
+                startY: 95,
+                head: [['Voce Economica', 'Importo', 'Incidenza']],
+                body: [
+                    ['A) Valore della Produzione (Ricavi)', formatMoney(financialData.totalRevenue), '100%'],
+                    ['B) Costi della Produzione', `(${formatMoney(financialData.totalCosts)})`, `${((financialData.totalCosts/financialData.totalRevenue)*100).toFixed(1)}%`],
+                    ['= RISULTATO OPERATIVO (A-B)', formatMoney(financialData.netResult), `${((financialData.netResult/financialData.totalRevenue)*100).toFixed(1)}%`],
+                    ['+/- Variazioni Fiscali (Indeducibilità)', `+ ${formatMoney(Math.max(0, financialData.taxableIncome - financialData.netResult))}`, '-'],
+                    ['= UTILE FISCALE IMPONIBILE', formatMoney(financialData.taxableIncome), '-']
+                ],
+                theme: 'grid',
+                headStyles: { fillColor: colorDark, textColor: [255,255,255] },
+                columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' }, 2: { halign: 'center' } },
+                didParseCell: (data) => {
+                    if(data.row.index === 2 || data.row.index === 4) { data.cell.styles.fontStyle = 'bold'; data.cell.styles.fillColor = [240, 253, 244]; }
+                }
+            });
+
+            // --- GRAFICO A BARRE (Vettoriale) ---
+            let finalY = doc.lastAutoTable.finalY + 15;
+            doc.setFontSize(11); doc.setTextColor(...colorDark); doc.text("Analisi Visiva", 15, finalY);
+            finalY += 10;
+            const maxVal = Math.max(financialData.totalRevenue, financialData.totalCosts);
+            const wMax = 140;
+            
+            // Ricavi
+            doc.setFillColor(59, 130, 246); doc.roundedRect(40, finalY, (financialData.totalRevenue/maxVal)*wMax, 8, 1, 1, 'F');
+            doc.setFontSize(8); doc.text("Ricavi", 15, finalY+5);
+            // Costi
+            finalY += 12;
+            doc.setFillColor(244, 63, 94); doc.roundedRect(40, finalY, (financialData.totalCosts/maxVal)*wMax, 8, 1, 1, 'F');
+            doc.text("Costi", 15, finalY+5);
+            // Margine
+            finalY += 12;
+            doc.setFillColor(...colorAccent); doc.roundedRect(40, finalY, (Math.max(0,financialData.netResult)/maxVal)*wMax, 8, 1, 1, 'F');
+            doc.text("Margine", 15, finalY+5);
+
+            // Footer
+            doc.setFontSize(8); doc.setTextColor(150); doc.text('Generato con Zero Sorprese Suite', 105, 290, null, null, 'center');
+            doc.save('Report_Analisi.pdf');
+        };
+
+        const handleUpload = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const text = evt.target.result;
+                    const rows = text.split("\n");
+                    const data = [];
+                    const monthlyTotals = Array(12).fill(0).map((_, i) => ({ month: ["GEN","FEB","MAR","APR","MAG","GIU","LUG","AGO","SET","OTT","NOV","DIC"][i], ricavi: 0, costi: 0, isActive: false }));
+                    
+                    let ragSoc = "Cliente";
+                    let totalRev = 0, totalCost = 0, totalDed = 0;
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i].trim();
+                        if (!row) continue;
+                        const cols = row.split(/;(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                        if(cols.length < 10) continue;
+                        if(ragSoc === "Cliente" && cols[1]) ragSoc = cols[1].replace(/"/g, "").trim();
+
+                        const desc = cols[4] ? cols[4].replace(/"/g, "").trim() : "Mov";
+                        const dare = parseItalianNumber(cols[7]); 
+                        const avere = parseItalianNumber(cols[8]); 
+                        const percInd = parseItalianNumber(cols[24]);
+                        const tipoConto = cols[27];
+
+                        // --- LOGICA FILTRO BILANCIO ---
+                        // Se "Tipo Conto" è presente ed è '1' (Patrimoniale), SALTA.
+                        // Accetta solo se è '2' (Economico) o se la colonna è vuota (fallback per sicurezza)
+                        if (tipoConto === '1') continue;
+
+                        const isRicavo = avere !== 0;
+                        const isCosto = dare !== 0;
+                        const valCosto = Math.abs(dare);
+                        const valRicavo = Math.abs(avere);
+
+                        if(isRicavo || isCosto) {
+                            data.push({ id: i, desc, costo: valCosto, ricavo: valRicavo, indeducibilita: percInd });
+                            if(isRicavo) {
+                                totalRev += valRicavo;
+                            }
+                            if(isCosto) {
+                                totalCost += valCosto;
+                                const ded = valCosto * (1 - (isNaN(percInd)?0:percInd)/100);
+                                totalDed += ded;
+                            }
+                            for(let m=0; m<12; m++) {
+                                const valMese = Math.abs(parseItalianNumber(cols[10+m]));
+                                if(valMese !== 0) {
+                                    monthlyTotals[m].isActive = true;
+                                    if(isRicavo) monthlyTotals[m].ricavi += valMese;
+                                    if(isCosto) monthlyTotals[m].costi += valMese;
+                                }
+                            }
+                        }
+                    }
+                    
+                    setFinancialData({
+                        ragioneSociale: ragSoc,
+                        movements: data,
+                        monthlyData: monthlyTotals,
+                        totalRevenue: totalRev,
+                        totalCosts: totalCost,
+                        totalDeductibleCosts: totalDed,
+                        netResult: totalRev - totalCost,
+                        taxableIncome: totalRev - totalDed 
+                    });
+                    
+                    setActiveTab('analysis');
+
+                } catch (e) { alert("Errore lettura CSV"); console.error(e); }
+            };
+            reader.readAsText(file);
+        };
+
+        if (!user) return <LoginView onLogin={setUser} />;
+
+        return (
+            <div className="flex h-full w-full">
+                {/* SIDEBAR */}
+                <aside className="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shadow-sm">
+                    <Logo collapsed={false}/>
+                    <div className="flex-1 px-3 py-4 space-y-1">
+                        <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Generale</p>
+                        <SidebarItem icon="LayoutDashboard" label="Home Fiscale" active={activeTab==='home'} onClick={() => setActiveTab('home')} disabled={!financialData} />
+                        <SidebarItem icon="BarChart3" label="Analisi Economica" active={activeTab==='analysis'} onClick={() => setActiveTab('analysis')} disabled={!financialData} />
+                        <SidebarItem icon="Play" label="Simulatore" active={activeTab==='simulator'} onClick={() => setActiveTab('simulator')} disabled={!financialData} />
+                        
+                        <p className="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-6">Strumenti</p>
+                        <SidebarItem icon="UploadCloud" label="Importa Dati" active={activeTab==='import'} onClick={() => setActiveTab('import')} />
+                        <SidebarItem icon="Settings" label="Setup" active={activeTab==='settings'} onClick={() => setActiveTab('settings')} />
+                    </div>
+                    <div className="p-4 border-t border-slate-100">
+                        <button onClick={() => setUser(null)} className="w-full flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 p-2"><Icon name="LogOut" size={14}/> Esci</button>
+                    </div>
+                </aside>
+
+                {/* MAIN */}
+                <main className="flex-1 overflow-y-auto relative">
+                    {activeTab === 'import' && <ImportView onUpload={handleUpload} />}
+                    {activeTab === 'home' && <HomeView data={financialData} settings={settings} taxData={taxData} />}
+                    {activeTab === 'analysis' && <AnalysisView data={financialData} onPrint={handlePrint} />}
+                    {activeTab === 'simulator' && <SimulatorView data={financialData} settings={settings} />}
+                    {activeTab === 'settings' && <SettingsView settings={settings} setSettings={setSettings} />}
+                </main>
+            </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
       root.render(<App />);
     </script>
   </body>
 </html>
-
-
-
